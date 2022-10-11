@@ -19,9 +19,11 @@ This lab demonstrates Routing of traffic in Hub and Spoke architecture with Azur
 
 ![lab architecture diagram](assets/azure-hybrid-routing-lab.png)
 
-### Series
+### Lab Series
 
 This lab is divided into series and each lab builds on previous lab.
+
+> *This lab is for testing/learning purposes only and should not be considered production configurations*
 
 - [Lab 1](lab1/README.md)
   - Deploy CSRs in Azure Hub Network and On-prem (simulated in Azure).

@@ -81,6 +81,9 @@ az network nsg rule create -g $rgonprem --nsg-name onprem-csr-nsg --name allow-1
 az network nsg rule create -g $rgonprem --nsg-name onprem-csr-nsg --name allow-192slash --access Allow --protocol "*" --direction Inbound --priority 140 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 az network nsg rule create -g $rgonprem --nsg-name onprem-csr-nsg --name allow-Outbound --access Allow --protocol "*" --direction Outbound --priority 120 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 
+az network vnet subnet update -g $rgonprem -n csr-external --vnet-name onprem-vnet --network-security-group "onprem-csr-nsg" -o none
+az network vnet subnet update -g $rgonprem -n csr-internal --vnet-name onprem-vnet --network-security-group "onprem-csr-nsg" -o none
+
 # Create on-prem CSR public and private NIC
 az network public-ip create -g $rgonprem --name onprem-csr-pip --idle-timeout 30 --allocation-method Static --sku standard -o none
 az network nic create -g $rgonprem --name csr-ext-nic --subnet csr-external --vnet onprem-vnet --public-ip-address onprem-csr-pip --private-ip-address 10.100.0.4 --ip-forwarding true --network-security-group onprem-csr-nsg -o none
@@ -148,6 +151,9 @@ az network nsg rule create --resource-group $rgazure --nsg-name azure-csr-nsg --
 az network nsg rule create --resource-group $rgazure --nsg-name azure-csr-nsg --name allow-192slash --access Allow --protocol "*" --direction Inbound --priority 140 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 az network nsg rule create --resource-group $rgazure --nsg-name azure-csr-nsg --name allow-out --access Allow --protocol "*" --direction Outbound --priority 140 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 
+az network vnet subnet update -g $rgazure -n csr-external --vnet-name hubvnet --network-security-group "azure-csr-nsg" -o none
+az network vnet subnet update -g $rgazure -n csr-internal --vnet-name hubvnet --network-security-group "azure-csr-nsg" -o none
+
 #create NICs for Azure CSR
 az network public-ip create --name azure-csr-pip --resource-group $rgazure --idle-timeout 30 --allocation-method Static --sku standard -o none
 az network nic create --name csr-ext-nic -g $rgazure --subnet csr-external --vnet hubvnet --public-ip-address azure-csr-pip --private-ip-address 10.0.0.4 --ip-forwarding true --network-security-group azure-csr-nsg -o none
@@ -189,3 +195,7 @@ Get public IPs for Azure CSR and On-Prem CSR
 az network public-ip show -g $rgazure -n azure-csr-pip --query "{address: ipAddress}"
 az network public-ip show -g $rgonprem -n onprem-csr-pip --query "{address: ipAddress}"
 ```
+
+Enable Serial Console
+> Go to Portal -> Navigate to VM -> Help -> Serial Console. Configure boot diagnostics to enable Serial Console.
+
