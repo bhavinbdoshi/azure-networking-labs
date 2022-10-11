@@ -41,11 +41,16 @@ Create Resource Groups
 locazure="eastus"
 rgazure="azure-rg-lab"
 
-loconprem="westus2 "
+loconprem="westus2"
 rgonprem="onprem-rg-lab"
+
+az group create -n $rgazure -l $locazure
+az group create -n $rgonprem -l $loconprem
 ```
 
+
 You may have to accept Cisco CSR Agreement
+
 ```azurecli
 az vm image terms accept --urn cisco:cisco-csr-1000v:16_12_5-byol:latest
 ```
