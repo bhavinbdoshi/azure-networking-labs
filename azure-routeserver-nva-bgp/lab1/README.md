@@ -1,4 +1,4 @@
-# Azure Hybrid Networking Routing Lab 1
+# Azure Hybrid Networking Routing Lab Series
 
 ## Lab 1 - Deploying Hub VNET in Azure and Simulated On-Prem then setting up Cisco CSR Routers with BGP over IPSEC
 
@@ -19,7 +19,7 @@ This lab deploys 2 CSR Routers one in Azure Hub VNET and one in On-premise (Azur
   - azure-csr Cisco CSR (tunnel ip 192.168.1.1) with public ip (azure-csr-pip) and private ips: external interface (10.0.0.4 from csr-external subnet) and internal interface (10.0.1.4 from csr-internal)
   - azure-static-rt UDR on csr-internal and csr-external with only route pointing 0/0 to Internet
 
-- On-premise
+- On-premise Environment (simulated on Azure)
   - on-prem vnet (10.100.0.0/16)
   - csr-internal (10.100.1.0/24) and csr-external(10.100.0.0/24) subnets in on-prem vnet
   - onprem-csr Cisco CSR (tunnel ip 192.168.1.3) with public ip (onprem-csr-pip) and private ips: external interface (10.100.0.4 from csr-external subnet) and internal interface (10.100.1.4 from csr-internal)
@@ -43,4 +43,9 @@ rgazure="azure-rg-lab"
 
 loconprem="westus2 "
 rgonprem="onprem-rg-lab"
+```
+
+You may have to accept Cisco CSR Agreement
+```azurecli
+az vm image terms accept --urn cisco:cisco-csr-1000v:16_12_5-byol:latest
 ```
