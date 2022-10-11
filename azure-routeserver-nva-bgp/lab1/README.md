@@ -173,29 +173,118 @@ az vm create \
 	--only-show-errors
 ```
 
-Add UDR to CSR interfaces (0/0 to Internet) to  Azure and On-prem CSRs to avoid routing loop
+#### Add UDR to CSR interfaces (0/0 to Internet) to  Azure and On-prem CSRs to avoid routing loop
 
 ```azurecli
 #Add UDR to CSR interfaces  (0/0 to Internet) for On-orem CSR
-az network route-table create --name onprem-static-rt --resource-group $rgonprem
-az network route-table route create --name route-to-internet --resource-group $rgonprem --route-table-name onprem-static-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet
-az network vnet subnet update --name csr-external --vnet-name onprem-vnet --resource-group $rgonprem --route-table onprem-static-rt
-az network vnet subnet update --name csr-internal --vnet-name onprem-vnet --resource-group $rgonprem --route-table onprem-static-rt
+az network route-table create --name onprem-static-rt --resource-group $rgonprem -o none
+az network route-table route create --name route-to-internet --resource-group $rgonprem --route-table-name onprem-static-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet -o none
+az network vnet subnet update --name csr-external --vnet-name onprem-vnet --resource-group $rgonprem --route-table onprem-static-rt -o none
+az network vnet subnet update --name csr-internal --vnet-name onprem-vnet --resource-group $rgonprem --route-table onprem-static-rt -o none
 
 #Add UDR to CSR interfaces  (0/0 to Internet) for Azure CSR
-az network route-table create --name azure-static-rt --resource-group $rgazure
-az network route-table route create --name route-to-internet --resource-group $rgazure --route-table-name azure-static-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet
-az network vnet subnet update --name csr-external --vnet-name hubvnet --resource-group $rgazure --route-table azure-static-rt
-az network vnet subnet update --name csr-internal --vnet-name hubvnet --resource-group $rgazure --route-table azure-static-rt
+az network route-table create --name azure-static-rt --resource-group $rgazure -o none
+az network route-table route create --name route-to-internet --resource-group $rgazure --route-table-name azure-static-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet -o none
+az network vnet subnet update --name csr-external --vnet-name hubvnet --resource-group $rgazure --route-table azure-static-rt -o none
+az network vnet subnet update --name csr-internal --vnet-name hubvnet --resource-group $rgazure --route-table azure-static-rt -o none
 ```
 
-Get public IPs for Azure CSR and On-Prem CSR
+#### Get public IPs for Azure CSR and On-Prem CSR
 
 ```azurecli
 az network public-ip show -g $rgazure -n azure-csr-pip --query "{address: ipAddress}"
 az network public-ip show -g $rgonprem -n onprem-csr-pip --query "{address: ipAddress}"
 ```
+Note the IP Address for azure-csr-pip and onprem-csr-pip which are required to create IPSec tunnel between CSRs.
 
-Enable Serial Console
+#### Enable Serial Console
+
+You can also use Azure Bastion to SSH into CSRs. For this lab we will use Serial Console.
+
 > Go to Portal -> Navigate to VM -> Help -> Serial Console. Configure boot diagnostics to enable Serial Console.
+
+### Login to Azure CSR
+
+- Go to Serial Console -> login using azureuser and password you specified.
+- Once logged in you should see `azure-csr>`
+- To enter Enable Mode type 'en' at `azure-csr>en`
+- You should see `azure-csr#`
+- Enter Configuration mode by typing `conf t`
+
+It will show you following:
+
+```bash
+azure-csr#conf t
+Enter configuration commands, one per line.  End with CNTL/Z.
+azure-csr(config)#
+```
+
+Paste in below configuration, one block at a time:
+
+Setup NAT for interfaces for CSR. Note: `gi1 is short for GigabitEthernet1 (10.0.0.4/24). gi2 is GigabitEthernet2 (10.0.1.4/24)`
+
+```bash
+
+int gi1
+no ip nat outside
+exit
+
+int gi2
+no ip nat inside
+exit
+
+```
+
+Setting up Crypto for ipsec tunnel
+
+```bash
+crypto ikev2 proposal to-onprem-csr-proposal
+  encryption aes-cbc-256
+  integrity sha1
+  group 2
+  exit
+
+crypto ikev2 policy to-onprem-csr-policy
+  proposal to-onprem-csr-proposal
+  match address local 10.0.0.4
+  exit
+
+```
+
+Get public IP of on-prem CSR i.e. onprem-csr-pip before pasting this block insert your IP address into the block.
+
+```bash
+crypto ikev2 keyring to-onprem-csr-keyring
+  peer "Insert onprem-csr-pip"
+    address "Insert onprem-csr-pip"
+    pre-shared-key Msft123Msft123
+    exit
+  exit
+```
+
+```bash
+  crypto ikev2 profile to-onprem-csr-profile
+   match address local 10.0.0.4
+    match identity remote address 10.100.0.4
+    authentication remote pre-share
+    authentication local  pre-share
+    lifetime 3600
+    dpd 10 5 on-demand
+    keyring local to-onprem-csr-keyring
+  exit
+```
+
+```bash
+crypto ipsec transform-set to-onprem-csr-TransformSet esp-gcm 256 
+  mode tunnel
+  exit
+
+crypto ipsec profile to-onprem-csr-IPsecProfile
+  set transform-set to-onprem-csr-TransformSet
+  set ikev2-profile to-onprem-csr-profile
+  set security-association lifetime seconds 3600
+  exit
+```
+
+Setting up Tunnel 
 
