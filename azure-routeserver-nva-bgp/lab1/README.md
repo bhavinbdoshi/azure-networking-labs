@@ -53,35 +53,40 @@ You may have to accept Cisco CSR Agreement
 ```azurecli
 az vm image terms accept --urn cisco:cisco-csr-1000v:16_12_5-byol:latest
 ```
+#### On-Prem environment (simulated on another Azure region)
 
 Create On-prem Simulated environment VNET and Subnets
 
 ```azurecli
+#Create On-prem VNET and Subnets
 az network vnet create --name onprem-vnet --resource-group $rgonprem --address-prefix 10.100.0.0/16 -o none
 
+#Create NSGs for on-prem CSR
 az network vnet subnet create -g $rgonprem --vnet-name onprem-vnet -n csr-internal --address-prefix 10.100.1.0/24 -o none
 az network vnet subnet create -g $rgonprem --vnet-name onprem-vnet -n csr-external --address-prefix 10.100.0.0/24 -o none
 az network vnet subnet create -g $rgonprem --vnet-name onprem-vnet -n test-vm-subnet --address-prefix 10.100.10.0/24 -o none
 
 ```
 
-Create on-prem On-prem CSR with public and private NICs, NSGs(allow ipsec UDP Ports and 10/8 traffic inbound)
+Create On-prem CSR with public and private NICs, NSGs(allow ipsec UDP Ports and 10/8 traffic inbound)
 
 `Change you password before creating VM`
 
 ```azurecli
+# Create NSGs for on-prem CSR
 az network nsg create -g $rgonprem -l $loconprem -n onprem-csr-nsg -o none
-
 az network nsg rule create -g $rgonprem --nsg-name onprem-csr-nsg --name csr-ipsec1 --access Allow --protocol Udp --direction Inbound --priority 100 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range 500 -o none
 az network nsg rule create -g $rgonprem --nsg-name onprem-csr-nsg --name csr-ipsec2 --access Allow --protocol Udp --direction Inbound --priority 110 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range 4500 -o none
 az network nsg rule create -g $rgonprem --nsg-name onprem-csr-nsg --name allow-10slash --access Allow --protocol "*" --direction Inbound --priority 130 --source-address-prefix 10.0.0.0/8 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 az network nsg rule create -g $rgonprem --nsg-name onprem-csr-nsg --name allow-192slash --access Allow --protocol "*" --direction Inbound --priority 140 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 az network nsg rule create -g $rgonprem --nsg-name onprem-csr-nsg --name allow-Outbound --access Allow --protocol "*" --direction Outbound --priority 120 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 
+# Create on-prem CSR public and private NIC
 az network public-ip create -g $rgonprem --name onprem-csr-pip --idle-timeout 30 --allocation-method Static --sku standard -o none
 az network nic create -g $rgonprem --name csr-ext-nic --subnet csr-external --vnet onprem-vnet --public-ip-address onprem-csr-pip --private-ip-address 10.100.0.4 --ip-forwarding true --network-security-group onprem-csr-nsg -o none
 az network nic create -g $rgonprem --name csr-int-nic --subnet csr-internal --vnet onprem-vnet --ip-forwarding true --private-ip-address 10.100.1.4 --network-security-group onprem-csr-nsg -o none
 
+#Create CSR VM
 az vm create \
  -g $rgonprem \
  -l $loconprem \
@@ -96,17 +101,16 @@ az vm create \
  --only-show-errors
 ```
 
-Create on-prem Test VM with NSG, NIC
+Create on-prem Test VM with NSG, NIC 
 
 ```azurecli
+#create NSG for on-prem CSR subnet for NICs
 az network nsg create -g $rgonprem -l $loconprem --name onprem-vm-nsg -o none
-
 az network nsg rule create -g $rgonprem --nsg-name onprem-vm-nsg --name allow-10slash --access Allow --protocol "*" --direction Inbound --priority 130 --source-address-prefix 10.0.0.0/8 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 
-az network public-ip create --name onprem-testvm-pip -g $rgonprem -l $loconprem --allocation-method Dynamic -o none
+az network nic create -g $rgonprem -l $loconprem -n testvm-nic --subnet test-vm-subnet --private-ip-address 10.100.10.10 --vnet-name onprem-vnet --network-security-group onprem-vm-nsg  -o none
 
-az network nic create -g $rgonprem -l $loconprem -n testvm-nic --subnet test-vm-subnet --private-ip-address 10.100.10.10 --vnet-name onprem-vnet --public-ip-address onprem-testvm-pip --network-security-group onprem-vm-nsg  -o none
-
+#create test vm
 az vm create --name onprem-test-vm \
  -g $rgonprem \
  -l $loconprem \
@@ -118,4 +122,70 @@ az vm create --name onprem-test-vm \
  --nics testvm-nic \
  -o none \
  --only-show-errors
+```
+
+#### Azure Hub Environment
+
+Create Azure Hub environment VNET and Subnets
+
+```azurecli
+#Create HUB VNET 
+az network vnet create --name hubvnet --resource-group $rgazure --address-prefix 10.0.0.0/16 -o none
+
+#Create CSR External and Internal CSR Subnet
+az network vnet subnet create --address-prefix 10.0.1.0/24 --name csr-internal --resource-group $rgazure --vnet-name hubvnet  -o none
+az network vnet subnet create --address-prefix 10.0.0.0/24 --name csr-external --resource-group $rgazure --vnet-name hubvnet -o none
+```
+
+Create Azure CSR with public and private NICs, NSGs(allow ipsec UDP Ports and 10/8 traffic inbound)
+
+```azurecli
+#Create NSG for CSR in Hub
+az network nsg create --resource-group $rgazure --name azure-csr-nsg --location $locazure -o none
+az network nsg rule create --resource-group $rgazure --nsg-name azure-csr-nsg --name csr-ipsec1 --access Allow --protocol Udp --direction Inbound --priority 100 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range 500 -o none
+az network nsg rule create --resource-group $rgazure --nsg-name azure-csr-nsg --name csr-ipsec2 --access Allow --protocol Udp --direction Inbound --priority 110 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range 4500 -o none
+az network nsg rule create --resource-group $rgazure --nsg-name azure-csr-nsg --name allow-10slash --access Allow --protocol "*" --direction Inbound --priority 130 --source-address-prefix 10.0.0.0/8 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+az network nsg rule create --resource-group $rgazure --nsg-name azure-csr-nsg --name allow-192slash --access Allow --protocol "*" --direction Inbound --priority 140 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+az network nsg rule create --resource-group $rgazure --nsg-name azure-csr-nsg --name allow-out --access Allow --protocol "*" --direction Outbound --priority 140 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+
+#create NICs for Azure CSR
+az network public-ip create --name azure-csr-pip --resource-group $rgazure --idle-timeout 30 --allocation-method Static --sku standard -o none
+az network nic create --name csr-ext-nic -g $rgazure --subnet csr-external --vnet hubvnet --public-ip-address azure-csr-pip --private-ip-address 10.0.0.4 --ip-forwarding true --network-security-group azure-csr-nsg -o none
+az network nic create --name csr-int-nic -g $rgazure --subnet csr-internal --vnet hubvnet --ip-forwarding true --private-ip-address 10.0.1.4 --network-security-group azure-csr-nsg -o none
+
+#Create Azure CSR VM
+az vm create \
+	--resource-group $rgazure \
+	--location $locazure \
+	--name azure-csr \
+	--size Standard_D2S_v3 \
+	--nics csr-ext-nic csr-int-nic  \
+	--image cisco:cisco-csr-1000v:16_12_5-byol:latest \
+	--admin-username azureuser \
+	--admin-password "put your \ passsword" \
+	-o none \
+	--only-show-errors
+```
+
+Add UDR to CSR interfaces (0/0 to Internet) to  Azure and On-prem CSRs to avoid routing loop
+
+```azurecli
+#Add UDR to CSR interfaces  (0/0 to Internet) for On-orem CSR
+az network route-table create --name onprem-static-rt --resource-group $rgonprem
+az network route-table route create --name route-to-internet --resource-group $rgonprem --route-table-name onprem-static-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet
+az network vnet subnet update --name csr-external --vnet-name onprem-vnet --resource-group $rgonprem --route-table onprem-static-rt
+az network vnet subnet update --name csr-internal --vnet-name onprem-vnet --resource-group $rgonprem --route-table onprem-static-rt
+
+#Add UDR to CSR interfaces  (0/0 to Internet) for Azure CSR
+az network route-table create --name azure-static-rt --resource-group $rgazure
+az network route-table route create --name route-to-internet --resource-group $rgazure --route-table-name azure-static-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet
+az network vnet subnet update --name csr-external --vnet-name hubvnet --resource-group $rgazure --route-table azure-static-rt
+az network vnet subnet update --name csr-internal --vnet-name hubvnet --resource-group $rgazure --route-table azure-static-rt
+```
+
+Get public IPs for Azure CSR and On-Prem CSR
+
+```azurecli
+az network public-ip show -g $rgazure -n azure-csr-pip --query "{address: ipAddress}"
+az network public-ip show -g $rgonprem -n onprem-csr-pip --query "{address: ipAddress}"
 ```
