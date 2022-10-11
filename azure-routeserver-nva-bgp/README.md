@@ -1,8 +1,9 @@
-# Azure Hybrid Networking Lab - Hub and Spoke Architecture with Azure Route Server, Palo Alto Firewall (PAN) and Cisco CSR Router (CSR)
+# Azure Hybrid Networking Routing Lab - Hub and Spoke Architecture with Azure Route Server, Palo Alto Firewall (PAN) and Cisco CSR Router (CSR)
 
 ## Intro
 
 This lab demonstrates Routing of traffic in Hub and Spoke architecture with Azure Route Server, Palo Alto VM Series Firewall (PAN), and Cisco CSR Router(CSR))
+*This lab is for testing/learning purposes only and should not be considered production configurations*
 
 ### Objective
 
@@ -20,14 +21,14 @@ This lab demonstrates Routing of traffic in Hub and Spoke architecture with Azur
 
 ### Series
 
-This lab is divided into series and builds on previous lab.
+This lab is divided into series and each lab builds on previous lab.
 
-- Lab 1
+- [Lab 1](lab1/README.md)
   - Deploy CSRs in Azure Hub Network and On-prem (simulated in Azure).
   - Connect CSRs via IPSec and configure BGP
   - Test connectivity between CSRs and show routes
   - Setup Test VM on-prem to validate connectivity
-- Lab 2 
+- Lab 2
   - Setup Azure Route Server (ARS) in Hub and BGP Peer with Azure CSR
   - Understand BGP Peering between and effects of route injection in spoke VNET via Azure Route Server
   - Deploy Spoke Network and test VM in spoke
