@@ -356,3 +356,233 @@ show run | section bgp
 show run | section ip
 
 ```
+
+### Login to On-prem CSR to configure IPSec and BGP
+
+Login to on-prem CSR similar way as done Azure CSR via Serial Console and then configure IPsec and BGP `onprem-csr-vm#conf t`
+
+```bash
+
+int gi1
+no ip nat outside
+exit
+
+int gi2
+no ip nat inside
+exit
+
+crypto ikev2 proposal to-azure-csr-proposal
+  encryption aes-cbc-256
+  integrity sha1
+  group 2
+  exit
+
+crypto ikev2 policy to-azure-csr-policy
+  proposal to-azure-csr-proposal
+  match address local 10.100.0.4
+  exit
+  
+crypto ikev2 keyring to-azure-csr-keyring
+  peer "Insert azure-csr-pip"
+    address "Insert azure-csr-pip"
+    pre-shared-key Msft123Msft123
+    exit
+  exit
+
+crypto ikev2 profile to-azure-csr-profile
+  match address local 10.100.0.4
+  match identity remote address 10.0.0.4
+  authentication remote pre-share
+  authentication local  pre-share
+  lifetime 3600
+  dpd 10 5 on-demand
+  keyring local to-azure-csr-keyring
+  exit
+
+crypto ipsec transform-set to-azure-csr-TransformSet esp-gcm 256 
+  mode tunnel
+  exit
+
+crypto ipsec profile to-azure-csr-IPsecProfile
+  set transform-set to-azure-csr-TransformSet
+  set ikev2-profile to-azure-csr-profile
+  set security-association lifetime seconds 3600
+  exit
+
+int tunnel 11
+  ip address 192.168.1.3 255.255.255.255
+  tunnel mode ipsec ipv4
+  ip tcp adjust-mss 1350
+  tunnel source 10.100.0.4
+  tunnel destination "Insert azure-csr-pip"
+  tunnel protection ipsec profile to-azure-csr-IPsecProfile
+  exit
+
+!loopback address for testing purposes only
+int lo1
+ip address 3.3.3.3 255.255.255.255
+exit
+
+router bgp 65003
+  bgp log-neighbor-changes
+  neighbor 192.168.1.1 remote-as 65001
+  neighbor 192.168.1.1 ebgp-multihop 255
+  neighbor 192.168.1.1 update-source tunnel 11
+  address-family ipv4
+    network 10.100.0.0 mask 255.255.0.0
+    network 3.3.3.3 mask 255.255.255.255
+    network 192.168.1.3 mask 255.255.255.255
+    neighbor 192.168.1.1 activate    
+    exit
+  exit
+
+!route BGP peer IP over the tunnel
+ip route 192.168.1.1 255.255.255.255 Tunnel 11
+ip route 10.100.0.0 255.255.0.0 null0
+exit
+
+```
+
+Validate using `show run | section bgp` to check changes have been applied.
+
+You will also see on Console neighbor Up message if everything is setup correctly `*Oct 12 00:22:52.333: %BGP-5-ADJCHANGE: neighbor 192.168.1.1 Up`
+
+#### Validate Azure CSR to On-prem CSR Connectivity
+
+Run following commands on Azure CSR to validate BGP, Tunnel and Connectivity
+
+```bash
+
+azure-csr#show ip bgp
+
+```
+If everything is configured then you will see Routes advertised by On-prem CSR with BGP 65003
+
+![azure-csr-bgp](assets/ip-bgp-azure-csr.png)
+
+You can also check routes and ping on-prem CSR
+
+```bash
+
+azure-csr#show ip route
+...
+
+Gateway of last resort is 10.0.0.1 to network 0.0.0.0
+
+S*    0.0.0.0/0 [1/0] via 10.0.0.1
+      1.0.0.0/32 is subnetted, 1 subnets
+C        1.1.1.1 is directly connected, Loopback1
+      3.0.0.0/32 is subnetted, 1 subnets
+B        3.3.3.3 [20/0] via 192.168.1.3, 00:09:32
+      10.0.0.0/8 is variably subnetted, 6 subnets, 3 masks
+S        10.0.0.0/16 is directly connected, Null0
+C        10.0.0.0/24 is directly connected, GigabitEthernet1
+L        10.0.0.4/32 is directly connected, GigabitEthernet1
+C        10.0.1.0/24 is directly connected, GigabitEthernet2
+L        10.0.1.4/32 is directly connected, GigabitEthernet2
+B        10.100.0.0/16 [20/0] via 192.168.1.3, 00:09:32
+      168.63.0.0/32 is subnetted, 1 subnets
+S        168.63.129.16 [254/0] via 10.0.0.1
+      169.254.0.0/32 is subnetted, 1 subnets
+S        169.254.169.254 [254/0] via 10.0.0.1
+      192.168.1.0/32 is subnetted, 2 subnets
+C        192.168.1.1 is directly connected, Tunnel11
+S        192.168.1.3 is directly connected, Tunnel11
+
+
+azure-csr#
+azure-csr#ping 10.100.0.4
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 10.100.0.4, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 67/68/69 ms
+azure-csr#ping 10.100.1.4
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 10.100.1.4, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 66/67/68 ms
+azure-csr#ping 192.168.1.3
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 192.168.1.3, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 66/67/68 ms
+azure-csr#ping 3.3.3.3
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 3.3.3.3, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 66/66/68 ms
+azure-csr#
+
+
+```
+
+#### Validate On-prem CSR to Azure Connectivity
+
+show ip bgp on on-prem CSR should show BGP peer with AS 65001
+
+![on-prem-csr](assets/ip-bgp-on-prem-csr.png)
+
+Validate pings from On-prem CSR to Azure CSR
+
+```bash
+
+onprem-csr-vm#show ip route
+Codes: L - local, C - connected, S - static, R - RIP, M - mobile, B - BGP
+       D - EIGRP, EX - EIGRP external, O - OSPF, IA - OSPF inter area 
+       N1 - OSPF NSSA external type 1, N2 - OSPF NSSA external type 2
+       E1 - OSPF external type 1, E2 - OSPF external type 2, m - OMP
+       n - NAT, Ni - NAT inside, No - NAT outside, Nd - NAT DIA
+       i - IS-IS, su - IS-IS summary, L1 - IS-IS level-1, L2 - IS-IS level-2
+       ia - IS-IS inter area, * - candidate default, U - per-user static route
+       H - NHRP, G - NHRP registered, g - NHRP registration summary
+       o - ODR, P - periodic downloaded static route, l - LISP
+       a - application route
+       + - replicated route, % - next hop override, p - overrides from PfR
+
+Gateway of last resort is 10.100.0.1 to network 0.0.0.0
+
+S*    0.0.0.0/0 [1/0] via 10.100.0.1
+      1.0.0.0/32 is subnetted, 1 subnets
+B        1.1.1.1 [20/0] via 192.168.1.1, 00:13:46
+      3.0.0.0/32 is subnetted, 1 subnets
+C        3.3.3.3 is directly connected, Loopback1
+      10.0.0.0/8 is variably subnetted, 6 subnets, 3 masks
+B        10.0.0.0/16 [20/0] via 192.168.1.1, 00:13:46
+S        10.100.0.0/16 is directly connected, Null0
+C        10.100.0.0/24 is directly connected, GigabitEthernet1
+L        10.100.0.4/32 is directly connected, GigabitEthernet1
+C        10.100.1.0/24 is directly connected, GigabitEthernet2
+L        10.100.1.4/32 is directly connected, GigabitEthernet2
+      168.63.0.0/32 is subnetted, 1 subnets
+S        168.63.129.16 [254/0] via 10.100.0.1
+      169.254.0.0/32 is subnetted, 1 subnets
+S        169.254.169.254 [254/0] via 10.100.0.1
+      192.168.1.0/32 is subnetted, 2 subnets
+S        192.168.1.1 is directly connected, Tunnel11
+C        192.168.1.3 is directly connected, Tunnel11
+
+onprem-csr-vm#ping 10.0.0.4
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 10.0.0.4, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 67/68/72 ms
+onprem-csr-vm#ping 10.0.1.4
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 10.0.1.4, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 67/70/80 ms
+onprem-csr-vm#ping 192.168.1.1
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 192.168.1.1, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 65/67/69 ms
+onprem-csr-vm#ping 1.1.1.1
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 1.1.1.1, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 67/67/68 ms
+onprem-csr-vm#
+
+```
+
+#### Setup Test VM to ping Azure CSR
