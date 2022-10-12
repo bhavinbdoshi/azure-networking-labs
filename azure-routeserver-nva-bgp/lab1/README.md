@@ -111,8 +111,11 @@ Create on-prem Test VM with NSG, NIC
 #create NSG for on-prem CSR subnet for NICs
 az network nsg create -g $rgonprem -l $loconprem --name onprem-vm-nsg -o none
 az network nsg rule create -g $rgonprem --nsg-name onprem-vm-nsg --name allow-10slash --access Allow --protocol "*" --direction Inbound --priority 130 --source-address-prefix 10.0.0.0/8 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+az network nsg rule create --resource-group $rgonprem --nsg-name onprem-vm-nsg --name allow-out --access Allow --protocol "*" --direction Outbound --priority 140 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 
-az network nic create -g $rgonprem -l $loconprem -n testvm-nic --subnet test-vm-subnet --private-ip-address 10.100.10.10 --vnet-name onprem-vnet --network-security-group onprem-vm-nsg  -o none
+az network nic create -g $rgonprem -l $loconprem -n testvm-nic --subnet test-vm-subnet --private-ip-address 10.100.10.10 --vnet-name onprem-vnet --network-security-group onprem-vm-nsg --ip-forwarding true -o none
+
+az network vnet subnet update -g $rgonprem -n test-vm-subnet --vnet-name onprem-vnet --network-security-group "onprem-vm-nsg" -o none
 
 #create test vm
 az vm create --name onprem-test-vm \
@@ -371,6 +374,10 @@ int gi2
 no ip nat inside
 exit
 
+!route for test subnet
+ip route 10.100.10.0 255.255.255.0 10.100.1.1
+exit
+
 crypto ikev2 proposal to-azure-csr-proposal
   encryption aes-cbc-256
   integrity sha1
@@ -553,6 +560,7 @@ C        10.100.0.0/24 is directly connected, GigabitEthernet1
 L        10.100.0.4/32 is directly connected, GigabitEthernet1
 C        10.100.1.0/24 is directly connected, GigabitEthernet2
 L        10.100.1.4/32 is directly connected, GigabitEthernet2
+S        10.100.10.0/24 [1/0] via 10.100.1.1
       168.63.0.0/32 is subnetted, 1 subnets
 S        168.63.129.16 [254/0] via 10.100.0.1
       169.254.0.0/32 is subnetted, 1 subnets
@@ -585,4 +593,133 @@ onprem-csr-vm#
 
 ```
 
-#### Setup Test VM to ping Azure CSR
+#### Setup route table on onprem-test-vm (10.100.10.10) and ping Azure Hub CSR
+
+On On-prem side for test vm create route table to simulate.
+
+```bash
+
+#Add route table to onprem-test-vm 
+az network route-table create --name onprem-vm-rt --resource-group $rgonprem -o none
+
+az network route-table route create --name vm-rt --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 10.0.0.0/16 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
+az network route-table route create --name csr1-loopback --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 1.1.1.1/32 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
+az network route-table route create --name csr1-vti --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 192.168.1.1/32 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
+az network route-table route create --name csr3-loopback --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 3.3.3.3/32 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
+az network route-table route create --name csr3-vti --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 192.168.1.3/32 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
+az network vnet subnet update --name test-vm-subnet --vnet-name onprem-vnet --resource-group $rgonprem --route-table onprem-vm-rt -o none
+
+```
+
+Login to onprem-test-vm via Serial Console and test pings to Azure CSR and On-prem CSR
+
+```bash
+
+Pinging on-prem CSR interfaces (10.100.0.4 and 10.100.1.4) , loopback (3.3.3.3), virtual tunnel ip (192.168.1.3)
+
+azureuser@onprem-test-vm:~$ ping 10.100.0.4 -c 4
+PING 10.100.0.4 (10.100.0.4) 56(84) bytes of data.
+64 bytes from 10.100.0.4: icmp_seq=1 ttl=255 time=2.40 ms
+64 bytes from 10.100.0.4: icmp_seq=2 ttl=255 time=3.75 ms
+64 bytes from 10.100.0.4: icmp_seq=3 ttl=255 time=2.47 ms
+64 bytes from 10.100.0.4: icmp_seq=4 ttl=255 time=5.32 ms
+
+--- 10.100.0.4 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3004ms
+rtt min/avg/max/mdev = 2.400/3.486/5.321/1.188 ms
+
+azureuser@onprem-test-vm:~$ ping 10.100.1.4 -c 4
+PING 10.100.1.4 (10.100.1.4) 56(84) bytes of data.
+64 bytes from 10.100.1.4: icmp_seq=1 ttl=255 time=3.28 ms
+64 bytes from 10.100.1.4: icmp_seq=2 ttl=255 time=3.62 ms
+64 bytes from 10.100.1.4: icmp_seq=3 ttl=255 time=4.79 ms
+64 bytes from 10.100.1.4: icmp_seq=4 ttl=255 time=1.56 ms
+
+--- 10.100.1.4 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3002ms
+rtt min/avg/max/mdev = 1.561/3.317/4.798/1.158 ms
+
+azureuser@onprem-test-vm:~$ ping 192.168.1.3
+PING 192.168.1.3 (192.168.1.3) 56(84) bytes of data.
+64 bytes from 192.168.1.3: icmp_seq=1 ttl=255 time=2.12 ms
+64 bytes from 192.168.1.3: icmp_seq=2 ttl=255 time=1.29 ms
+64 bytes from 192.168.1.3: icmp_seq=3 ttl=255 time=5.74 ms
+64 bytes from 192.168.1.3: icmp_seq=4 ttl=255 time=1.13 ms
+^C
+--- 192.168.1.3 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3002ms
+rtt min/avg/max/mdev = 1.137/2.574/5.740/1.866 ms
+
+Pinging Azure CSR interfaces (10.0.0.4 and 10.0.1.4) , loopback (1.1.1.1), virtual tunnel ip (192.168.1.1)
+
+azureuser@onprem-test-vm:~$ ping 192.168.1.1
+PING 192.168.1.1 (192.168.1.1) 56(84) bytes of data.
+64 bytes from 192.168.1.1: icmp_seq=1 ttl=254 time=64.0 ms
+64 bytes from 192.168.1.1: icmp_seq=2 ttl=254 time=67.7 ms
+64 bytes from 192.168.1.1: icmp_seq=3 ttl=254 time=65.9 ms
+64 bytes from 192.168.1.1: icmp_seq=4 ttl=254 time=66.7 ms
+^C
+--- 192.168.1.1 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3001ms
+rtt min/avg/max/mdev = 64.011/66.096/67.735/1.376 ms
+azureuser@onprem-test-vm:~$ ping 1.1.1.1
+PING 1.1.1.1 (1.1.1.1) 56(84) bytes of data.
+64 bytes from 1.1.1.1: icmp_seq=1 ttl=254 time=63.4 ms
+64 bytes from 1.1.1.1: icmp_seq=2 ttl=254 time=62.5 ms
+64 bytes from 1.1.1.1: icmp_seq=3 ttl=254 time=64.8 ms
+64 bytes from 1.1.1.1: icmp_seq=4 ttl=254 time=63.5 ms
+^C
+--- 1.1.1.1 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3004ms
+rtt min/avg/max/mdev = 62.578/63.606/64.828/0.802 ms
+azureuser@onprem-test-vm:~$ ping 10.0.0.4
+PING 10.0.0.4 (10.0.0.4) 56(84) bytes of data.
+64 bytes from 10.0.0.4: icmp_seq=1 ttl=254 time=63.9 ms
+64 bytes from 10.0.0.4: icmp_seq=2 ttl=254 time=73.3 ms
+64 bytes from 10.0.0.4: icmp_seq=3 ttl=254 time=66.9 ms
+64 bytes from 10.0.0.4: icmp_seq=4 ttl=254 time=64.5 ms
+^V64 bytes from 10.0.0.4: icmp_seq=5 ttl=254 time=64.3 ms
+
+64 bytes from 10.0.0.4: icmp_seq=6 ttl=254 time=66.9 ms
+^C
+--- 10.0.0.4 ping statistics ---
+6 packets transmitted, 6 received, 0% packet loss, time 5005ms
+rtt min/avg/max/mdev = 63.960/66.691/73.377/3.226 ms
+azureuser@onprem-test-vm:~$ ping 10.0.1.4
+PING 10.0.1.4 (10.0.1.4) 56(84) bytes of data.
+64 bytes from 10.0.1.4: icmp_seq=1 ttl=254 time=68.9 ms
+64 bytes from 10.0.1.4: icmp_seq=2 ttl=254 time=65.7 ms
+64 bytes from 10.0.1.4: icmp_seq=3 ttl=254 time=64.0 ms
+64 bytes from 10.0.1.4: icmp_seq=4 ttl=254 time=64.6 ms
+^C
+--- 10.0.1.4 ping statistics ---
+5 packets transmitted, 4 received, 20% packet loss, time 4006ms
+rtt min/avg/max/mdev = 64.036/65.845/68.941/1.903 ms
+
+
+```
+
+Ping from Azure CSR to on-prem-test VM (10.100.10.10)
+
+```bash
+
+azure-csr#ping 10.100.10.10
+Type escape sequence to abort.
+Sending 5, 100-byte ICMP Echos to 10.100.10.10, timeout is 2 seconds:
+!!!!!
+Success rate is 100 percent (5/5), round-trip min/avg/max = 68/70/72 ms
+azure-csr#
+
+```
+
+#### Validation
+
+- Ping from Azure CSR (10.0.0.4)  to On-prem CSR (10.100.0.4)
+- Ping from On-prem CSR (10.100.0.4) to Azure CSR (10.0.0.4)
+- Ping from On-prem test VM (10.100.10.10) to on-prem CSR
+- Ping from On-prem test VM to Azure CSR
+- Ping from Azure CSR to On-prem test VM
+
+#### Conclusion
+
+In this lab 1, we setup ip sec tunnel between 2 CSR routers and then tested connectivity, BGP between them.
