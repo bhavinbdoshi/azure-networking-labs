@@ -5,13 +5,18 @@
 ### Introduction
 
 This lab deploys Azure Route Server in Hub VNET and is BGP peered with Cisco CSR in Azure Hub. A new spoke is peered with hub with spoke using remote gateways to learn routes from Azure Route Server (ARS). Connectivity between VM in spoke and on-prem test VM is validated after route injection in Spoke VNET via ARS.
+
 > *This lab is for testing/learning purposes only and should not be considered production configurations*
 
 ### Networking Architecture
 
 ![ars-csr-bgp-peering-architecture](assets/lab-2-ars-csr-bgp.png)
 
-### New Components in  lab 2
+### Expected Traffic Flow Post lab 2 deployment
+
+![ars-csr-flow-architecture](assets/lab-2-traffic-flow.png)
+
+### New Components in lab 2
 
 - Azure Hub Environment
   - Azure Route Server (10.0.2.4 and 10.0.2.5) in subnet 10.0.0.2/26
@@ -363,13 +368,12 @@ onprem-csr-vm#
 
 ```
 
-#### Validation & Traffic Flow
+#### Validation
 
 - Ping from spoke1-vm (10.10.0.4) to onprem-test-vm (10.100.10.10) and vice-versa
-- Traceroute from spoke1-vm to 10.100.10.10
+- Traceroute from spoke1-vm (10.10.0.4) to 10.100.10.10 showing hops
 - Ping between spoke1-vm and CSRs on azure and on-prem
-
-![lab-2-traffic-flow](assets/lab-2-traffic-flow.png)
+- Route to Internet from spoke1-vm directly goes out from Azure
 
 #### Conclusion
 
