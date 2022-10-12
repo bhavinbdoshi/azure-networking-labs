@@ -21,7 +21,7 @@ This lab deploys Azure Route Server in Hub VNET and is BGP peered with Cisco CSR
 - Azure Hub Environment
   - Azure Route Server (10.0.2.4 and 10.0.2.5) in subnet 10.0.0.2/26
   - Spoke VNET (spoke1vnet) with address space 10.10.0.0/16
-  - VM in Spoke VNET (10.10.0.4)
+  - VM (spoke1-vm) in Spoke VNET (10.10.0.4)
 
 - Connectivity
   - BGP Peering between ARS (10.0.2.4 & 5) and CSR (10.0.1.4)
@@ -45,6 +45,9 @@ This lab deploys Azure Route Server in Hub VNET and is BGP peered with Cisco CSR
 - Connectivity
   - IPSec (IKEV2) VPN tunnel between azure-csr and onprem-csr
   - BGP over IPSec between azure-csr and onprem-csr
+
+- VNET Peerings
+  - Spoke (spoke1vnet) Peered to Hub (hubvnet) with Spoke using remote-gateways in hubvnet.
 
 ### Deployment Steps
 

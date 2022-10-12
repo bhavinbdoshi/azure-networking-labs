@@ -36,10 +36,12 @@ This lab is divided into series and each lab builds on previous lab.
   - Understand BGP Peering between ARS and CSR and effects of route injection in spoke VNET via Azure Route Server
   - Deploy Spoke Network and test VM in spoke
   - Test connectivity between Spoke VM and On-prem VM
-- Lab 3
+  - 0/0 route directly to Internet (no traffic inspection)
+- [Lab 3](lab3/README.md)
   - Setup Palo Alto VM Series Firewall in hub and BGP Peer with ARS and CSR
   - Advertise 0/0 via Firewall route to ARS for North-South Traffic Inspection
   - Test Connectivity between Spoke VM and On-prem VM
+  - Test Connectivity between Spoke VNETs and traffic flow
   - Validate internet traffic inspected via PAN Firewall
 - Lab 4
   - Force Spoke Traffic to On-prem via PAN Firewall
