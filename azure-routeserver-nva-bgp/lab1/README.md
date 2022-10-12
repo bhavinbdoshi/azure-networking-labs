@@ -2,9 +2,9 @@
 
 ## Lab 1 - Deploying Hub VNET in Azure and Simulated On-Prem then setting up Cisco CSR Routers with BGP over IPSEC
 
-### Intro
+### Introduction
 
-This lab deploys 2 CSR Routers one in Azure Hub VNET and one in On-premise (Azure simulated) and IPSec tunnel is established between CSR routers. BGP is established between CSRs. An on-prem test VM is setup to ping CSR on Azure.
+This lab deploys 2 CSR Routers one in Azure Hub VNET and one in On-premise (Azure simulated) and IPSec VPN tunnel is established between CSR routers. BGP is established between CSRs. An on-prem test VM is setup to ping CSR on Azure.
 > *This lab is for testing/learning purposes only and should not be considered production configurations*
 
 ### Networking Architecture
@@ -28,7 +28,7 @@ This lab deploys 2 CSR Routers one in Azure Hub VNET and one in On-premise (Azur
   - onprem-vm-rt UDR on test-vm-subnet
 
 - Connectivity
-  - IPSec (IKEV2) tunnel between azure-csr and onprem-csr
+  - IPSec (IKEV2) VPN tunnel between azure-csr and onprem-csr
   - BGP over IPSec between azure-csr and onprem-csr
 
 ### Deployment Steps
@@ -208,7 +208,7 @@ You can also use Azure Bastion to SSH into CSRs. For this lab we will use Serial
 
 > Go to Portal -> Navigate to VM -> Help -> Serial Console. Configure boot diagnostics to enable Serial Console.
 
-### Login to Azure CSR to configure IPSec and BGP
+### Configure Azure CSR for IPSec and BGP
 
 - Go to Serial Console -> login using azureuser and password you specified.
 - Once logged in you should see `azure-csr>`
@@ -360,7 +360,7 @@ show run | section ip
 
 ```
 
-### Login to On-prem CSR to configure IPSec and BGP
+### Configure On-prem CSR for IPSec and BGP
 
 Login to on-prem CSR similar way as done Azure CSR via Serial Console and then configure IPsec and BGP `onprem-csr-vm#conf t`
 
@@ -463,6 +463,7 @@ Run following commands on Azure CSR to validate BGP, Tunnel and Connectivity
 azure-csr#show ip bgp
 
 ```
+
 If everything is configured then you will see Routes advertised by On-prem CSR with BGP 65003
 
 ![azure-csr-bgp](assets/ip-bgp-azure-csr.png)
@@ -525,7 +526,7 @@ azure-csr#
 
 #### Validate On-prem CSR to Azure Connectivity
 
-show ip bgp on on-prem CSR should show BGP peer with AS 65001
+show ip bgp on on-prem CSR should show BGP peer with AS 65001 and routes learned from the peer
 
 ![on-prem-csr](assets/ip-bgp-on-prem-csr.png)
 
@@ -716,10 +717,12 @@ azure-csr#
 
 - Ping from Azure CSR (10.0.0.4)  to On-prem CSR (10.100.0.4)
 - Ping from On-prem CSR (10.100.0.4) to Azure CSR (10.0.0.4)
-- Ping from On-prem test VM (10.100.10.10) to on-prem CSR
-- Ping from On-prem test VM to Azure CSR
-- Ping from Azure CSR to On-prem test VM
+- Ping from On-prem test VM (10.100.10.10) to on-prem CSR (10.100.0.4)
+- Ping from On-prem test VM (10.100.10.10) to Azure CSR (10.0.0.4)
+- Ping from Azure CSR (10.0.0.4) to On-prem test VM (10.100.10.10)
+- Azure CSR learning routes from on-prem CSR
+- On-prem CSR learning routes from Azure CSR
 
 #### Conclusion
 
-In this lab 1, we setup ip sec tunnel between 2 CSR routers and then tested connectivity, BGP between them.
+This lab illustrated basic IPSec VPN tunnel between Cisco CSRs with BGP.
