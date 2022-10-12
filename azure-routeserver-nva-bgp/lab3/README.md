@@ -16,7 +16,7 @@ East-West traffic (to on-prem and other VNETs) bypasses PAN
 
 ![lab-3-architecture](assets/lab-3-architecture.png)
 
-### Expected Traffic Flow Post lab 3 deployment
+### Expected Traffic Flow after lab 3 deployment
 
 ![lab-3-traffic-flow](assets/lab-3-traffic-flow.png)
 
@@ -25,6 +25,7 @@ East-West traffic (to on-prem and other VNETs) bypasses PAN
 Azure Hub Environment
 
 - Palo Alto Firewall VM (10.0.4.4) with interfaces in pan-mgt (10.0.5.0/24) subnet and pan-trusted (10.0.4.0/24) subnet
+- PAN advertising 0/0 route to 10.0.4.4 to ARS (10.0.2.4 and 10.0.2.5)
 - Spoke VNET (spoke2vnet) with address space 10.30.0.0/16
 - VM (spoke2-vm) in Spoke VNET (10.30.0.4)
 
@@ -65,3 +66,121 @@ On-premise Environment (simulated on Azure)
 
 - VNET Peerings
   - Spoke (spoke1vnet) Peered to Hub (hubvnet) with spoke1vnet using remote-gateways in hubvnet.
+
+### Deployment Steps
+
+You can use either cloud shell or Azure CLI. While Azure Bastion can be used to access VMs, in this lab Serial Console is used for simplicity.
+
+Set Resource Group Variables. Use same values from previous lab
+
+```bash
+locazure="eastus"
+rgazure="azure-rg-lab"
+
+loconprem="westus2"
+rgonprem="onprem-rg-lab"
+
+```
+
+#### Deploy Spoke-2 VNET (spoke2vnet) and peer to (hubvnet)
+
+```bash
+
+#create Spoke2 VNET
+az network vnet create --address-prefixes 10.30.0.0/16 -n spoke2Vnet -g $rgazure --subnet-name vm-subnet --subnet-prefixes 10.30.0.0/24 -o none
+
+#create NSG for Subnet and attach to Subnet
+az network nsg create -g $rgazure -n "vm-subnet-spoke2-nsg" -l $locazure  -o none
+az network vnet subnet update -g $rgazure -n vm-subnet --vnet-name spoke2Vnet --network-security-group "vm-subnet-spoke2-nsg" -o none
+
+# Peer spoke2vnet to hubvnet
+hubid=$(az network vnet show -g $rgazure -n hubvnet --query id -o tsv)
+spoke2id=$(az network vnet show -g $rgazure -n spoke2Vnet --query id -o tsv)
+
+az network vnet peering create -n "hubTOspoke2" -g $rgazure --vnet-name hubvnet --remote-vnet $spoke2id --allow-vnet-access --allow-forwarded-traffic --allow-gateway-transit -o none
+az network vnet peering create -n "spoke2TOhub" -g $rgazure --vnet-name spoke2Vnet --remote-vnet $hubid --allow-vnet-access --allow-forwarded-traffic --use-remote-gateways -o none
+
+#deploy test VM in spoke 2
+az network nic create -g $rgazure --vnet-name spoke2Vnet --subnet vm-subnet -n "spoke2-vm-nic" -o none
+az vm create -n spoke2-vm \
+    -g $rgazure \
+    --image ubuntults \
+    --size Standard_D2S_v3 \
+    --nics spoke2-vm-nic \
+    --authentication-type password \
+    --admin-username azureuser \
+    --admin-password your password \ here  \
+    -o none \
+    --only-show-errors
+
+```
+
+##### Connectivity between Spokes?
+
+If you ping from spoke1vm to spoke2vm it will not work.
+
+While spoke2-vm nic has learned routes to on-prem from Azure Route Server in Hub, it doesn't have a route to 10.10.0.0/16.
+Also, in spoke2-vm-nic 10/8 route points to None as Next Hope Type.
+
+![spoke2-vm-nic-no-10/8-route](assets/spoke2-vm-nic-10-8-none-route.png)
+
+Let's revisit this after deploying PAN
+
+##### Deploy VM Series PaloAlto Firewall
+
+You may have to accept terms if you are deploying this image for first time.
+
+```bash
+
+az vm image terms accept --urn paloaltonetworks:vmseries-flex:byol:latest
+
+```
+
+Create Subnets/NSGs for PAN interfaces
+
+```azurecli
+
+# Create NSG for PAN MGMT SUBNET
+az network nsg create -g $rgazure -n "subnet-pan-mgmt-nsg" -l $locazure   -o none
+
+az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-mgmt-nsg --name "Allow-10slash" --access Allow --protocol "*" --direction Inbound --priority 100 --source-address-prefix 10.0.0.0/8 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-mgmt-nsg --name "Allow-192slash" --access Allow --protocol "*" --direction Inbound --priority 100 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-mgmt-nsg --name "Allow-HTTPS" --access Allow --protocol "TCP" --direction Inbound --priority 300 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range "443" -o none
+
+# Create NSG for PAN TRUSTED SUBNET
+az network nsg create -g $rgazure -n "subnet-pan-trusted-nsg" -l $locazure  -o none
+
+az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-trusted-nsg --name "Allow-10slash" --access Allow --protocol "*" --direction Inbound --priority 100 --source-address-prefix 10.0.0.0/8 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-trusted-nsg --name "Allow-10slash" --access Allow --protocol "*" --direction Inbound --priority 100 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+
+# Create Subnets
+az network vnet subnet create --address-prefix 10.0.4.0/24 --name pan-trusted --resource-group $rgazure --vnet-name hubvnet --network-security-group subnet-pan-trusted-nsg -o none
+az network vnet subnet create --address-prefix 10.0.5.0/24 --name pan-mgmt --resource-group $rgazure --vnet-name hubvnet --network-security-group subnet-pan-mgmt-nsg -o none
+
+# Create PAN Firewall
+
+# Create PAN NICs
+az network public-ip create --name pan-mgmt-pip --resource-group $rgazure --idle-timeout 30 --sku Standard
+az network nic create --name pan-mgmt-nic --resource-group $rgazure --subnet pan-mgmt --vnet-name hubvnet --public-ip-address pan-mgmt-pip --private-ip-address 10.0.5.4 --ip-forwarding true
+az network nic create --name pan-trust-nic --resource-group $rgazure --subnet pan-trusted --vnet-name hubvnet --private-ip-address 10.0.4.4 --ip-forwarding true --public-ip-address pan-untrust-pip
+
+# Create RT for trust-nic and mgmt-nic and apply to subnet
+az network route-table create --name pan-mgmt-vm-rt --resource-group $rgazure --disable-bgp-route-propagation true
+az network route-table route create --name default --resource-group $rgazure --route-table-name pan-mgmt-vm-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet
+az network vnet subnet update --name pan-mgmt --vnet-name hubvnet --resource-group $rgazure --route-table pan-mgmt-vm-rt
+
+az network route-table create --name pan-trusted-vm-rt --resource-group $rgazure
+az network route-table route create --name default --resource-group $rgazure --route-table-name pan-trusted-vm-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet
+az network vnet subnet update --name pan-trusted --vnet-name hubvnet --resource-group $rgazure --route-table pan-trusted-vm-rt
+
+# Create PAN Series VM
+az vm create --resource-group $rgazure \
+ --location $locazure \
+ --name pan-vmseries-fw \
+ --size Standard_D2S_v3 \
+ --nics pan-mgmt-nic  pan-trust-nic \
+ --image paloaltonetworks:vmseries-flex:byol:latest \
+ --admin-username azureuser \
+ --admin-password M@ft123M@ft123 
+
+```

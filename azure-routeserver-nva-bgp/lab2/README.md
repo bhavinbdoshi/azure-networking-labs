@@ -12,7 +12,7 @@ This lab deploys Azure Route Server in Hub VNET and is BGP peered with Cisco CSR
 
 ![ars-csr-bgp-peering-architecture](assets/lab-2-ars-csr-bgp.png)
 
-### Expected Traffic Flow Post lab 2 deployment
+### Expected Traffic Flow after lab 2 deployment
 
 ![ars-csr-flow-architecture](assets/lab-2-traffic-flow.png)
 
@@ -26,7 +26,7 @@ This lab deploys Azure Route Server in Hub VNET and is BGP peered with Cisco CSR
 - Connectivity
   - BGP Peering between ARS (10.0.2.4 & 5) and CSR (10.0.1.4)
 
-### Components from previous lab 1
+### Components from previous labs
 
 - Azure Hub Environment
   - hub-vnet(10.0.0.0/16)
@@ -53,7 +53,7 @@ This lab deploys Azure Route Server in Hub VNET and is BGP peered with Cisco CSR
 
 You can use either cloud shell or Azure CLI. While Azure Bastion can be used to access VMs, in this lab Serial Console is used for simplicity.
 
-Set Resource Group Variables. Use same values from lab 1
+Set Resource Group Variables. Use same values from previous lab
 
 ```bash
 locazure="eastus"
