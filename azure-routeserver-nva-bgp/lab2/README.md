@@ -363,11 +363,13 @@ onprem-csr-vm#
 
 ```
 
-#### Validation 
+#### Validation & Traffic Flow
 
 - Ping from spoke1-vm (10.10.0.4) to onprem-test-vm (10.100.10.10) and vice-versa
 - Traceroute from spoke1-vm to 10.100.10.10
 - Ping between spoke1-vm and CSRs on azure and on-prem
+
+![lab-2-traffic-flow](assets/lab-2-traffic-flow.png)
 
 #### Conclusion
 
