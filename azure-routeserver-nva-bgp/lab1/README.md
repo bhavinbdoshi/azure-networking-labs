@@ -53,6 +53,7 @@ You may have to accept Cisco CSR Agreement
 ```azurecli
 az vm image terms accept --urn cisco:cisco-csr-1000v:16_12_5-byol:latest
 ```
+
 #### On-Prem environment (simulated on another Azure region)
 
 Create On-prem Simulated environment VNET and Subnets
@@ -104,7 +105,7 @@ az vm create \
  --only-show-errors
 ```
 
-Create on-prem Test VM with NSG, NIC 
+Create on-prem Test VM with NSG, NIC
 
 ```azurecli
 #create NSG for on-prem CSR subnet for NICs
@@ -161,16 +162,16 @@ az network nic create --name csr-int-nic -g $rgazure --subnet csr-internal --vne
 
 #Create Azure CSR VM
 az vm create \
-	--resource-group $rgazure \
-	--location $locazure \
-	--name azure-csr \
-	--size Standard_D2S_v3 \
-	--nics csr-ext-nic csr-int-nic  \
-	--image cisco:cisco-csr-1000v:16_12_5-byol:latest \
-	--admin-username azureuser \
-	--admin-password "put your \ passsword" \
-	-o none \
-	--only-show-errors
+ --resource-group $rgazure \
+ --location $locazure \
+ --name azure-csr \
+ --size Standard_D2S_v3 \
+ --nics csr-ext-nic csr-int-nic  \
+ --image cisco:cisco-csr-1000v:16_12_5-byol:latest \
+ --admin-username azureuser \
+ --admin-password "put your \ passsword" \
+ -o none \
+ --only-show-errors
 ```
 
 #### Add UDR to CSR interfaces (0/0 to Internet) to  Azure and On-prem CSRs to avoid routing loop
@@ -195,6 +196,7 @@ az network vnet subnet update --name csr-internal --vnet-name hubvnet --resource
 az network public-ip show -g $rgazure -n azure-csr-pip --query "{address: ipAddress}"
 az network public-ip show -g $rgonprem -n onprem-csr-pip --query "{address: ipAddress}"
 ```
+
 Note the IP Address for azure-csr-pip and onprem-csr-pip which are required to create IPSec tunnel between CSRs.
 
 #### Enable Serial Console
@@ -203,7 +205,7 @@ You can also use Azure Bastion to SSH into CSRs. For this lab we will use Serial
 
 > Go to Portal -> Navigate to VM -> Help -> Serial Console. Configure boot diagnostics to enable Serial Console.
 
-### Login to Azure CSR
+### Login to Azure CSR to configure IPSec and BGP
 
 - Go to Serial Console -> login using azureuser and password you specified.
 - Once logged in you should see `azure-csr>`
@@ -219,7 +221,7 @@ Enter configuration commands, one per line.  End with CNTL/Z.
 azure-csr(config)#
 ```
 
-Paste in below configuration, one block at a time:
+Paste in below configuration, one block at a time in config mode i.e `azure-csr(config)#`
 
 Setup NAT for interfaces for CSR. Note: `gi1 is short for GigabitEthernet1 (10.0.0.4/24). gi2 is GigabitEthernet2 (10.0.1.4/24)`
 
@@ -262,6 +264,19 @@ crypto ikev2 keyring to-onprem-csr-keyring
   exit
 ```
 
+Example of above block will be following where you will put on-prem-csr-pip
+
+```bash
+crypto ikev2 keyring to-onprem-csr-keyring
+  peer 1.2.3.4
+    address 1.2.3.4
+    pre-shared-key Msft123Msft123
+    exit
+  exit
+```
+
+Setting now IPSec Profile with remote peer
+
 ```bash
   crypto ikev2 profile to-onprem-csr-profile
    match address local 10.0.0.4
@@ -286,5 +301,58 @@ crypto ipsec profile to-onprem-csr-IPsecProfile
   exit
 ```
 
-Setting up Tunnel 
+Setting up `Tunnel with IP Address 192.168.1.1 with source of 10.0.0.4` - Replace destination with public IP of On-prem CSR.
 
+```bash
+int tunnel 11
+  ip address 192.168.1.1 255.255.255.255
+  tunnel mode ipsec ipv4
+  ip tcp adjust-mss 1350
+  tunnel source 10.0.0.4
+  tunnel destination "onprem-csr-pip"
+  tunnel protection ipsec profile to-onprem-csr-IPsecProfile
+  exit 
+
+```
+
+Setting up Loopback for testing
+
+```bash
+!loopback interface only for testing
+int lo1
+ip address 1.1.1.1 255.255.255.255
+exit
+```
+
+Setting BGP with on-prem CSR and route BGP IP over tunnel
+
+```bash
+
+router bgp 65001
+  bgp log-neighbor-changes
+  neighbor 192.168.1.3 remote-as 65003
+  neighbor 192.168.1.3 ebgp-multihop 255
+  neighbor 192.168.1.3 update-source tunnel 11
+  address-family ipv4
+    network 10.0.0.0 mask 255.255.0.0
+    network 1.1.1.1 mask 255.255.255.255
+    network 192.168.1.1 mask 255.255.255.255
+    neighbor 192.168.1.3 activate    
+    exit
+  exit
+
+ip route 192.168.1.3 255.255.255.255 Tunnel 11
+ip route 10.0.0.0 255.255.0.0 null0
+exit
+
+```
+
+You can validate that your changes have been applied by running following commands at 'en' mode `azure-csr#`
+
+```bash
+
+show run | section bgp
+
+show run | section ip
+
+```
