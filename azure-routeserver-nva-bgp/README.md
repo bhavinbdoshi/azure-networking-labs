@@ -38,11 +38,12 @@ This lab is divided into series and each lab builds on previous lab.
   - Test connectivity between Spoke VM and On-prem VM
   - 0/0 route directly to Internet (no traffic inspection)
 - [Lab 3](lab3/README.md)
-  - Setup Palo Alto VM Series Firewall in hub and BGP Peer with ARS and CSR
+  - Setup Palo Alto VM Series Firewall (PAN) in hub and BGP Peer with ARS only
+  - No BGP Peering between PAN and CSR
   - Advertise 0/0 via Firewall route to ARS for North-South Traffic Inspection
   - Test Connectivity between Spoke VMs and On-prem VM
   - Validate internet traffic inspected via PAN Firewall
-  - Deploy another Spoke network and validate connectivity across spoke VMs doesn't work
+  - Deploy another Spoke network and validate connectivity between spoke VMs doesn't work
 - Lab 4
   - Deploy Route Server in Transit VNET to propagate routes to Spoke VNETs
   - Spoke VNETs to use ARS in Transit instead of Hub

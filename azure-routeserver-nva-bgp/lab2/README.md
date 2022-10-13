@@ -19,7 +19,7 @@ This lab deploys Azure Route Server in Hub VNET and is BGP peered with Cisco CSR
 ### New Components in lab 2
 
 - Azure Hub Environment
-  - Azure Route Server (10.0.2.4 and 10.0.2.5) in subnet 10.0.0.2/26
+  - Azure Route Server (routeserver-hub) (10.0.2.4 and 10.0.2.5) in subnet 10.0.0.2/26
   - Spoke VNET (spoke1vnet) with address space 10.10.0.0/16
   - VM (spoke1-vm) in Spoke VNET (10.10.0.4)
 
@@ -201,7 +201,27 @@ After BGP Peering with ARS, serial console will show neighbor up messages
 
 ##### Validate azure-csr learned routes
 
+Run `show ip bgp summary` and `show ip bgp`
+
 ```bash
+
+azure-csr#show ip bgp summary
+BGP router identifier 1.1.1.1, local AS number 65001
+BGP table version is 25, main routing table version 25
+8 network entries using 1984 bytes of memory
+12 path entries using 1632 bytes of memory
+3/3 BGP path/bestpath attribute entries using 864 bytes of memory
+2 BGP AS-PATH entries using 48 bytes of memory
+0 BGP route-map cache entries using 0 bytes of memory
+0 BGP filter-list cache entries using 0 bytes of memory
+BGP using 4528 total bytes of memory
+BGP activity 9/1 prefixes, 39/27 paths, scan interval 60 secs
+9 networks peaked at 00:09:20 Oct 13 2022 UTC (13:39:04.315 ago)
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+10.0.2.4        4        65515    2067    2006       25    0    0 1d05h           3
+10.0.2.5        4        65515    2062    2002       25    0    0 1d05h           3
+192.168.1.3     4        65003    2480    2485       25    0    0 1d13h           3
 
 azure-csr#show ip bgp
 BGP table version is 10, local router ID is 1.1.1.1

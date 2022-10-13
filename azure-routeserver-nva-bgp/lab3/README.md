@@ -1,14 +1,16 @@
 # Azure Hybrid Networking Routing Lab Series
 
-## Lab 3 - Deploying PaloAlto VM Series Firewall in Hub VNET and BGP peering PAN with Cisco CSR and Azure Route Server in Azure
+## Lab 3 - Deploying PaloAlto VM Series Firewall in Hub VNET and BGP peering PAN with Azure Route Server in Azure
 
 ### Introduction
 
-This lab deploys PaloAlto VM Series Firewall (PAN) in Hub VNET and is BGP peered with Cisco CSR and Azure Route Server in Azure Hub. Goal of this lab is to force 0/0 traffic originating from spoke VNETs via PAN.
+This lab deploys PaloAlto VM Series Firewall (PAN) in Hub VNET and is BGP peered Azure Route Server in Azure Hub. Goal of this lab is to force 0/0 traffic originating from spoke VNETs via PAN.
 
 North-South traffic (to internet) via PAN
 
-East-West traffic (to on-prem and other VNETs) bypasses PAN
+East-West traffic (to on-prem) bypasses PAN and goes via CSR in Azure
+
+Spoke-Spoke traffic (via PAN)
 
 > *This lab is for testing/learning purposes only and should not be considered production configurations*
 
@@ -32,7 +34,6 @@ Azure Hub Environment
 Connectivity
 
 - BGP Peering between PAN (10.0.4.4) and ARS (10.0.2.4 and 10.0.2.5)
-- BGP Peering between PAN (10.0.4.4) and CSR (10.0.1.4)
 
 VNET Peerings
 
@@ -46,7 +47,7 @@ Azure Hub Environment
 - csr-internal (10.0.1.0/24) and csr-external(10.0.0.0/24) subnets in hub-vnet  
 - azure-csr Cisco CSR (tunnel ip 192.168.1.1) with public ip (azure-csr-pip) and private ips: external interface (10.0.0.4 from csr-external subnet) and internal interface (10.0.1.4 from csr-internal)
 - azure-static-rt UDR on csr-internal and csr-external with only route pointing 0/0 to Internet
-- Azure Route Server (10.0.2.4 and 10.0.2.5) in subnet 10.0.0.2/26
+- Azure Route Server (routeserver-hub) (10.0.2.4 and 10.0.2.5) in subnet 10.0.0.2/26
 - Spoke VNET (spoke1vnet) with address space 10.10.0.0/16
 - VM (spoke1-vm) in Spoke VNET (10.10.0.4)
 
@@ -126,7 +127,7 @@ Also, in spoke2-vm-nic 10/8 route points to None as Next Hope Type.
 
 Let's revisit this after deploying PAN
 
-##### Deploy VM Series PaloAlto Firewall
+##### Deploy VM Series PaloAlto Firewall in hubvnet
 
 You may have to accept terms if you are deploying this image for first time.
 
@@ -136,7 +137,7 @@ az vm image terms accept --urn paloaltonetworks:vmseries-flex:byol:latest
 
 ```
 
-Create Subnets/NSGs for PAN interfaces
+Create VM Series PA Firewall
 
 ```azurecli
 
@@ -144,14 +145,14 @@ Create Subnets/NSGs for PAN interfaces
 az network nsg create -g $rgazure -n "subnet-pan-mgmt-nsg" -l $locazure   -o none
 
 az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-mgmt-nsg --name "Allow-10slash" --access Allow --protocol "*" --direction Inbound --priority 100 --source-address-prefix 10.0.0.0/8 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
-az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-mgmt-nsg --name "Allow-192slash" --access Allow --protocol "*" --direction Inbound --priority 100 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-mgmt-nsg --name "Allow-192slash" --access Allow --protocol "*" --direction Inbound --priority 120 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-mgmt-nsg --name "Allow-HTTPS" --access Allow --protocol "TCP" --direction Inbound --priority 300 --source-address-prefix "*" --source-port-range "*" --destination-address-prefix "*" --destination-port-range "443" -o none
 
 # Create NSG for PAN TRUSTED SUBNET
 az network nsg create -g $rgazure -n "subnet-pan-trusted-nsg" -l $locazure  -o none
 
 az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-trusted-nsg --name "Allow-10slash" --access Allow --protocol "*" --direction Inbound --priority 100 --source-address-prefix 10.0.0.0/8 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
-az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-trusted-nsg --name "Allow-10slash" --access Allow --protocol "*" --direction Inbound --priority 100 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
+az network nsg rule create --resource-group $rgazure --nsg-name subnet-pan-trusted-nsg --name "Allow-192slash" --access Allow --protocol "*" --direction Inbound --priority 200 --source-address-prefix 192.168.0.0/16 --source-port-range "*" --destination-address-prefix "*" --destination-port-range "*" -o none
 
 # Create Subnets
 az network vnet subnet create --address-prefix 10.0.4.0/24 --name pan-trusted --resource-group $rgazure --vnet-name hubvnet --network-security-group subnet-pan-trusted-nsg -o none
@@ -160,18 +161,18 @@ az network vnet subnet create --address-prefix 10.0.5.0/24 --name pan-mgmt --res
 # Create PAN Firewall
 
 # Create PAN NICs
-az network public-ip create --name pan-mgmt-pip --resource-group $rgazure --idle-timeout 30 --sku Standard
-az network nic create --name pan-mgmt-nic --resource-group $rgazure --subnet pan-mgmt --vnet-name hubvnet --public-ip-address pan-mgmt-pip --private-ip-address 10.0.5.4 --ip-forwarding true
-az network nic create --name pan-trust-nic --resource-group $rgazure --subnet pan-trusted --vnet-name hubvnet --private-ip-address 10.0.4.4 --ip-forwarding true --public-ip-address pan-untrust-pip
+az network public-ip create --name pan-mgmt-pip --resource-group $rgazure --idle-timeout 30 --sku Standard -o none
+az network nic create --name pan-mgmt-nic --resource-group $rgazure --subnet pan-mgmt --vnet-name hubvnet --public-ip-address pan-mgmt-pip --private-ip-address 10.0.5.4 --ip-forwarding true -o none
+az network nic create --name pan-trust-nic --resource-group $rgazure --subnet pan-trusted --vnet-name hubvnet --private-ip-address 10.0.4.4 --ip-forwarding true -o none
 
 # Create RT for trust-nic and mgmt-nic and apply to subnet
-az network route-table create --name pan-mgmt-vm-rt --resource-group $rgazure --disable-bgp-route-propagation true
-az network route-table route create --name default --resource-group $rgazure --route-table-name pan-mgmt-vm-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet
-az network vnet subnet update --name pan-mgmt --vnet-name hubvnet --resource-group $rgazure --route-table pan-mgmt-vm-rt
+az network route-table create --name pan-mgmt-vm-rt --resource-group $rgazure --disable-bgp-route-propagation true -o none
+az network route-table route create --name default --resource-group $rgazure --route-table-name pan-mgmt-vm-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet -o none
+az network vnet subnet update --name pan-mgmt --vnet-name hubvnet --resource-group $rgazure --route-table pan-mgmt-vm-rt -o none
 
-az network route-table create --name pan-trusted-vm-rt --resource-group $rgazure
-az network route-table route create --name default --resource-group $rgazure --route-table-name pan-trusted-vm-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet
-az network vnet subnet update --name pan-trusted --vnet-name hubvnet --resource-group $rgazure --route-table pan-trusted-vm-rt
+az network route-table create --name pan-trusted-vm-rt --resource-group $rgazure -o none
+az network route-table route create --name default --resource-group $rgazure --route-table-name pan-trusted-vm-rt --address-prefix "0.0.0.0/0" --next-hop-type Internet -o none
+az network vnet subnet update --name pan-trusted --vnet-name hubvnet --resource-group $rgazure --route-table pan-trusted-vm-rt -o none
 
 # Create PAN Series VM
 az vm create --resource-group $rgazure \
@@ -181,6 +182,315 @@ az vm create --resource-group $rgazure \
  --nics pan-mgmt-nic  pan-trust-nic \
  --image paloaltonetworks:vmseries-flex:byol:latest \
  --admin-username azureuser \
- --admin-password M@ft123M@ft123 
+ --admin-password "M@ft123M@ft123" \ 
+ -o none \
+ --only-show-errors
 
 ```
+
+##### Configure VM Series PaloAlto Firewall
+
+For this lab you can import [this config file](assets/running-config-Lab3.xml) configuration file to PAN Web Management UI interface.
+
+> When you use this xml, password to login to PAN Web Management UI is "M@ft123M@ft123"
+
+It sets up following
+
+- Network (Interfaces, Zones, Virtual Routers, Interface Mgmt)
+- Policies (Security and NAT). 
+- Ip Address for Trusted PAN NIC is 10.0.4.4
+- Configures Static Routes to Azure Route Server in Hubvnet
+- Configures route 0/0 to PA interface and redistribute to BGP Peers
+- Sets up BGP Peer with ARS (10.0.2.4 & 10.0.2.5) (routeserver-hub ASN 65515)
+
+Import Configuration to PAN:
+
+- Login to <https://public-ip-of-vm-series-fw>
+
+  - You will need accept self signed certificate
+
+- Go to Device -> Setup -> Operations
+
+- Click on Import Named configuration snapshot
+
+- Click on Commit on right corner.
+
+- Validate that PAN is configured.
+
+#### BGP Peer PAN with ARS in Hub
+
+```bash
+
+#peer from ARS to PAN
+az network routeserver peering create --name hub-ars-to-pan --peer-ip 10.0.4.4 --peer-asn 65010 --routeserver routeserver-hub --resource-group $rgazure -o none
+
+```
+
+In the portal you can see BGP Peering established between CSR and PAN in Azure
+
+![route-server-bgp-peer](assets/routeserver-hub-peer.png)
+
+### Check learned routes on Azure Route Server in Hub (routeserver-hub) from PAN
+
+Validate 0/0 route to NVA is learned from PAN
+
+```azurecli
+
+az network routeserver peering list-learned-routes \
+    --name hub-ars-to-pan \
+    --routeserver routeserver-hub \
+    --resource-group $rgazure
+```
+
+![ars-hub-learned-routes](assets/ars-learned-routes.png)
+
+ARS in Hub (routeserver-hub) is advertising spoke routes to peers
+
+```azurecli
+
+az network routeserver peering list-advertised-routes  \
+    --name hub-ars-to-pan \
+    --routeserver routeserver-hub \
+    --resource-group $rgazure
+```
+
+![ars-hub-advertised-routes](assets/ars-advertised-routes.png)
+
+#### Check BGP on PAN (pan-vmseries-fw)
+
+Login to <https://public-ip-of-vm-series-fw> PAN Management Web UI
+
+Navigate to Network -> Virtual Routers
+
+View "default" router runtime stats (click on More Runtime Stats on right column)
+
+Check Route Table
+
+![pan-route-table](assets/pan-route-table-lab3.png)
+
+PAN BGP Peers
+
+![pan-bgp-peers](assets/pan-bgp-peer-lab3.png)
+
+PAN Learned Routes from peers
+
+![pan-learned-routes](assets/pan-learned-routes-lab3.png)
+
+PAN Advertised routes to peers
+
+0/0 route is advertised to ARS in hub
+
+![pan-advertised-routes](assets/pan-advertised-routes-lab3.png)
+
+#### Check BGP on Azure CSR (azure-csr)
+
+Login to azure-csr via Serial Console. Navigate to `en` and then `conf t`
+
+`show ip bgp summary`
+
+```bash
+
+azure-csr#show ip bgp summary
+BGP router identifier 1.1.1.1, local AS number 65001
+BGP table version is 25, main routing table version 25
+8 network entries using 1984 bytes of memory
+12 path entries using 1632 bytes of memory
+3/3 BGP path/bestpath attribute entries using 864 bytes of memory
+2 BGP AS-PATH entries using 48 bytes of memory
+0 BGP route-map cache entries using 0 bytes of memory
+0 BGP filter-list cache entries using 0 bytes of memory
+BGP using 4528 total bytes of memory
+BGP activity 9/1 prefixes, 39/27 paths, scan interval 60 secs
+9 networks peaked at 00:09:20 Oct 13 2022 UTC (13:39:04.315 ago)
+
+Neighbor        V           AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+10.0.2.4        4        65515    2067    2006       25    0    0 1d05h           3
+10.0.2.5        4        65515    2062    2002       25    0    0 1d05h           3
+192.168.1.3     4        65003    2480    2485       25    0    0 1d13h           3
+
+```
+
+`show ip bgp`
+
+- shows CSR (azure-csr) has learned route to new spoke 2 setup in this lab from ARS (routeserver-hub)
+
+```bash
+
+azure-csr#show ip bgp 
+BGP table version is 25, local router ID is 1.1.1.1
+Status codes: s suppressed, d damped, h history, * valid, > best, i - internal, 
+              r RIB-failure, S Stale, m multipath, b backup-path, f RT-Filter, 
+              x best-external, a additional-path, c RIB-compressed, 
+              t secondary path, L long-lived-stale,
+Origin codes: i - IGP, e - EGP, ? - incomplete
+RPKI validation codes: V valid, I invalid, N Not found
+
+     Network          Next Hop            Metric LocPrf Weight Path
+ *>   1.1.1.1/32       0.0.0.0                  0         32768 i
+ *>   3.3.3.3/32       192.168.1.3              0             0 65003 i
+ *    10.0.0.0/16      10.0.2.5                               0 65515 i
+ *                     10.0.2.4                               0 65515 i
+ *>                    0.0.0.0                  0         32768 i
+ *    10.10.0.0/16     10.0.2.5                               0 65515 i
+ *>                    10.0.2.4                               0 65515 i
+ *    10.30.0.0/16     10.0.2.4                               0 65515 i
+ *>                    10.0.2.5                               0 65515 i
+ *>   10.100.0.0/16    192.168.1.3              0             0 65003 i
+ *>   192.168.1.1/32   0.0.0.0                  0         32768 i
+ r>   192.168.1.3/32   192.168.1.3              0             0 65003 i
+
+```
+
+#### Check effective routes of Spoke VMs
+
+Spoke1VM NIC Effective Routes
+
+0/0 traffic next hop is 10.0.4.4 instead of Internet
+On-prem routes are via 10.0.1.4 (azure-csr)
+
+![spoke1-vm-effective-route](assets/spok1-vm-nic-effective-route-lab3.png)
+
+Check same for spoke2vm NIC.
+
+#### Validate connectivity from Spoke1 VM and Spoke 2 VM to VMs, NVAs
+
+From Spoke 1 VM
+
+Ping onprem-test-vm (10.100.10.10)
+
+```bash
+
+azureuser@spoke1-vm:~$ ping 10.100.10.10 -c 2
+PING 10.100.10.10 (10.100.10.10) 56(84) bytes of data.
+64 bytes from 10.100.10.10: icmp_seq=1 ttl=62 time=72.5 ms
+64 bytes from 10.100.10.10: icmp_seq=2 ttl=62 time=77.0 ms
+
+--- 10.100.10.10 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 72.565/74.783/77.002/2.235 ms
+
+```
+
+Ping PAN (10.0.4.4)
+
+```bash
+
+azureuser@spoke1-vm:~$ ping 10.0.4.4 -c 2
+PING 10.0.4.4 (10.0.4.4) 56(84) bytes of data.
+64 bytes from 10.0.4.4: icmp_seq=1 ttl=64 time=2.96 ms
+64 bytes from 10.0.4.4: icmp_seq=2 ttl=64 time=1.75 ms
+
+--- 10.0.4.4 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 1.754/2.357/2.961/0.605 ms
+
+```
+
+Ping CSR (10.0.1.4)
+
+```bash
+
+azureuser@spoke1-vm:~$ ping 10.0.1.4 -c 2
+PING 10.0.1.4 (10.0.1.4) 56(84) bytes of data.
+64 bytes from 10.0.1.4: icmp_seq=1 ttl=255 time=4.07 ms
+64 bytes from 10.0.1.4: icmp_seq=2 ttl=255 time=16.9 ms
+
+--- 10.0.1.4 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 4.079/10.511/16.943/6.432 ms
+
+```
+
+Ping on-prem CSR (10.100.1.4)
+
+```bash
+
+azureuser@spoke1-vm:~$ ping 10.100.1.4 -c 2
+PING 10.100.1.4 (10.100.1.4) 56(84) bytes of data.
+64 bytes from 10.100.1.4: icmp_seq=1 ttl=254 time=69.6 ms
+64 bytes from 10.100.1.4: icmp_seq=2 ttl=254 time=70.2 ms
+
+--- 10.100.1.4 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 69.650/69.943/70.237/0.395 ms
+
+```
+
+Ping 8.8.8.8
+
+```bash
+
+```
+
+Repeat same steps from Spoke 2 VM
+
+#### Check and Validate connectivity between Spokes (spoke 1 vm and spoke 2 vm)
+
+The connectivity between spokes now works via PAN
+
+```bash
+#ping from spoke1-vm (10.10.0.4) to spoke2-vm (10.30.0.4)
+azureuser@spoke1-vm:~$ ping 10.30.0.4 -c 4
+PING 10.30.0.4 (10.30.0.4) 56(84) bytes of data.
+64 bytes from 10.30.0.4: icmp_seq=1 ttl=63 time=2.45 ms
+64 bytes from 10.30.0.4: icmp_seq=2 ttl=63 time=3.30 ms
+64 bytes from 10.30.0.4: icmp_seq=3 ttl=63 time=2.83 ms
+64 bytes from 10.30.0.4: icmp_seq=4 ttl=63 time=2.41 ms
+
+--- 10.30.0.4 ping statistics ---
+4 packets transmitted, 4 received, 0% packet loss, time 3003ms
+
+#traceroute from spoke1-vm (10.10.0.4) to spoke2-vm (10.30.0.4)
+
+azureuser@spoke1-vm:~$ traceroute 10.30.0.4
+traceroute to 10.30.0.4 (10.30.0.4), 30 hops max, 60 byte packets
+ 1  10.0.4.4 (10.0.4.4)  3.117 ms  2.692 ms  3.053 ms
+ 2  10.30.0.4 (10.30.0.4)  3.319 ms * *
+
+#traceoute to external ip (8.8.8.8)
+
+azureuser@spoke1-vm:~$ traceroute 8.8.8.8
+traceroute to 8.8.8.8 (8.8.8.8), 30 hops max, 60 byte packets
+ 1  10.0.4.4 (10.0.4.4)  2.077 ms  2.783 ms  2.015 ms
+ 2  * * *
+ 3  * * *
+ 4  * * *
+ 5  * * *
+ 6  * * *
+ 7  * * *
+ 8  * * *
+ 9  * * *
+10  * * *
+11  * * *
+12  * *^C
+
+#curl a web page to test connectivity works
+
+azureuser@spoke1-vm:~$ curl -I  www.microsoft.com
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Content-Type: text/html
+ETag: "6082151bd56ea922e1357f5896a90d0a:1425454794"
+Last-Modified: Wed, 04 Mar 2015 07:39:54 GMT
+Server: AkamaiNetStorage
+Content-Length: 1020
+Expires: Thu, 13 Oct 2022 15:45:04 GMT
+Cache-Control: max-age=0, no-cache, no-store
+Pragma: no-cache
+Date: Thu, 13 Oct 2022 15:45:04 GMT
+Connection: keep-alive
+```
+
+#### Validate Internet Traffic Inspection via PAN
+
+Login to PAN -> Monitor -> Logs -> Traffic
+
+In filter put `addr.dst in 8.8.8.8`
+
+![pan-traffic-inspection](assets/pan-traffic-insepction.png)
+
+#### Conclusion
+
+In this lab PAN FW was introduced in hub to inspect internet traffic. PAN was peered with ARS via BGP. PAN advertising 0/0 route to ARS.
+
+Validated, North-South traffic (to internet) via PAN. East-West traffic (to on-prem) bypasses PAN and goes via CSR in Azure. Spoke-Spoke traffic (via PAN)
