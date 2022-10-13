@@ -197,7 +197,7 @@ For this lab you can import [this config file](assets/running-config-Lab3.xml) c
 It sets up following
 
 - Network (Interfaces, Zones, Virtual Routers, Interface Mgmt)
-- Policies (Security and NAT). 
+- Policies (Security and NAT).
 - Ip Address for Trusted PAN NIC is 10.0.4.4
 - Configures Static Routes to Azure Route Server in Hubvnet
 - Configures route 0/0 to PA interface and redistribute to BGP Peers
@@ -419,10 +419,49 @@ rtt min/avg/max/mdev = 69.650/69.943/70.237/0.395 ms
 Ping 8.8.8.8
 
 ```bash
+#ping 8.8.8.8
+azureuser@spoke1-vm:~$ ping 8.8.8.8 -c 2
+PING 8.8.8.8 (8.8.8.8) 56(84) bytes of data.
+64 bytes from 8.8.8.8: icmp_seq=1 ttl=114 time=3.36 ms
+64 bytes from 8.8.8.8: icmp_seq=2 ttl=114 time=3.07 ms
+
+--- 8.8.8.8 ping statistics ---
+2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+rtt min/avg/max/mdev = 3.073/3.218/3.364/0.156 ms
 
 ```
 
-Repeat same steps from Spoke 2 VM
+```bash
+
+# traceroute 8.8.8.8 shows 10.0.4.4 (PAN FW) as next hop
+
+azureuser@spoke1-vm:~$ traceroute 8.8.8.8
+traceroute to 8.8.8.8 (8.8.8.8), 30 hops max, 60 byte packets
+ 1  10.0.4.4 (10.0.4.4)  1.937 ms  1.887 ms  2.572 ms^C
+
+```
+
+```bash
+
+#curl a web page to test connectivity works
+
+azureuser@spoke1-vm:~$ curl -I  www.microsoft.com
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Content-Type: text/html
+ETag: "6082151bd56ea922e1357f5896a90d0a:1425454794"
+Last-Modified: Wed, 04 Mar 2015 07:39:54 GMT
+Server: AkamaiNetStorage
+Content-Length: 1020
+Expires: Thu, 13 Oct 2022 15:45:04 GMT
+Cache-Control: max-age=0, no-cache, no-store
+Pragma: no-cache
+Date: Thu, 13 Oct 2022 15:45:04 GMT
+Connection: keep-alive
+
+```
+
+Repeat same steps from Spoke 2 VM to validate connectivity.
 
 #### Check and Validate connectivity between Spokes (spoke 1 vm and spoke 2 vm)
 
@@ -447,38 +486,6 @@ traceroute to 10.30.0.4 (10.30.0.4), 30 hops max, 60 byte packets
  1  10.0.4.4 (10.0.4.4)  3.117 ms  2.692 ms  3.053 ms
  2  10.30.0.4 (10.30.0.4)  3.319 ms * *
 
-#traceoute to external ip (8.8.8.8)
-
-azureuser@spoke1-vm:~$ traceroute 8.8.8.8
-traceroute to 8.8.8.8 (8.8.8.8), 30 hops max, 60 byte packets
- 1  10.0.4.4 (10.0.4.4)  2.077 ms  2.783 ms  2.015 ms
- 2  * * *
- 3  * * *
- 4  * * *
- 5  * * *
- 6  * * *
- 7  * * *
- 8  * * *
- 9  * * *
-10  * * *
-11  * * *
-12  * *^C
-
-#curl a web page to test connectivity works
-
-azureuser@spoke1-vm:~$ curl -I  www.microsoft.com
-HTTP/1.1 200 OK
-Accept-Ranges: bytes
-Content-Type: text/html
-ETag: "6082151bd56ea922e1357f5896a90d0a:1425454794"
-Last-Modified: Wed, 04 Mar 2015 07:39:54 GMT
-Server: AkamaiNetStorage
-Content-Length: 1020
-Expires: Thu, 13 Oct 2022 15:45:04 GMT
-Cache-Control: max-age=0, no-cache, no-store
-Pragma: no-cache
-Date: Thu, 13 Oct 2022 15:45:04 GMT
-Connection: keep-alive
 ```
 
 #### Validate Internet Traffic Inspection via PAN
