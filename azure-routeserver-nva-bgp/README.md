@@ -42,15 +42,20 @@ This lab is divided into series and each lab builds on previous lab.
   - No BGP Peering between PAN and CSR
   - Advertise 0/0 via Firewall route to ARS for North-South Traffic Inspection
   - Test Connectivity between Spoke VMs and On-prem VM
-  - Validate internet traffic inspected via PAN Firewall
-  - Deploy another Spoke network and validate connectivity between spoke VMs doesn't work
-- Lab 4
+  - Validate internet traffic (north-south) inspected via PAN Firewall
+  - Validate spoke to spoke inspected via PAN FW
+  - Validate traffic to On-prem bypasses PAN FW and directly goes via CSR
+- [Lab 4](lab4/README.md)
+  - BGP Peer PAN to CSR so PaloAlto Virtual Router can learn BGP routes from CSR in Hub
+  - Configure PAN BGP peer
+  - Potential approach to fix broken routing due to peering of PAN and CSR
+- Lab 5
   - Deploy Route Server in Transit VNET to propagate routes to Spoke VNETs
   - Spoke VNETs to use ARS in Transit instead of Hub
   - Test Connectivity between Spoke VM and On-prem VM
   - Validate internet and on-prem traffic inspected via PAN Firewall
   - Spoke Traffic to On-prem via PAN Firewall
-  - Spoke to Spoke traffic via PAN Firewall works now
+  - Spoke to Spoke traffic via PAN Firewall
   - Spoke to Internet traffic via PAN Firewall
 
 #### References (coming soon)

@@ -116,7 +116,7 @@ az vm create -n spoke2-vm \
 
 ```
 
-##### Connectivity between Spokes?
+#### Connectivity between Spokes?
 
 If you ping from spoke1vm to spoke2vm it will not work.
 
@@ -127,7 +127,7 @@ Also, in spoke2-vm-nic 10/8 route points to None as Next Hope Type.
 
 Let's revisit this after deploying PAN
 
-##### Deploy VM Series PaloAlto Firewall in hubvnet
+#### Deploy VM Series PaloAlto Firewall in hubvnet
 
 You may have to accept terms if you are deploying this image for first time.
 
@@ -188,7 +188,7 @@ az vm create --resource-group $rgazure \
 
 ```
 
-##### Configure VM Series PaloAlto Firewall
+#### Configure VM Series PaloAlto Firewall
 
 For this lab you can import [this config file](assets/running-config-Lab3.xml) configuration file to PAN Web Management UI interface.
 
@@ -440,6 +440,8 @@ traceroute to 8.8.8.8 (8.8.8.8), 30 hops max, 60 byte packets
  1  10.0.4.4 (10.0.4.4)  1.937 ms  1.887 ms  2.572 ms^C
 
 ```
+
+curl external web url to validate connectivity
 
 ```bash
 
