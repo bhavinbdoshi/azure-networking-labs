@@ -14,11 +14,11 @@ Spoke VNETs will peer with transit-vnet and learn only routes advertised by rout
 
 ![lab-5-architecture](assets/lab-5-architecture.png)
 
-### Expected Traffic Flow after lab 4 deployment
+### Expected Traffic Flow after lab 5 deployment
 
 ![lab-5-traffic-flow](assets/lab-5-traffic-flow.png)
 
-### New Components in lab 4
+### New Components in lab 5
 
 Azure Hub Environment
 
