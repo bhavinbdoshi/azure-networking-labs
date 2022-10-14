@@ -1,6 +1,6 @@
 # Azure Hybrid Networking Routing Lab Series
 
-## Lab 4 - BGP peering PAN with Cisco CSR and evaluate learned/advertised routes across bgp peers
+## Lab 5 - BGP peering PAN with Cisco CSR and evaluate learned/advertised routes across bgp peers
 
 ### Introduction
 
