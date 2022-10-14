@@ -72,9 +72,9 @@ rgonprem="onprem-rg-lab"
 
 ```
 
-#### Configure Base Settings for VM Series PaloAlto Firewall
+#### Import Configuration Settings for VM Series PaloAlto Firewall
 
-For this lab you can import [this config file](assets/running-config-Lab4.xml) configuration file to PAN Web Management UI interface.
+For this lab you can import [this config file - lab 4](assets/running-config-Lab4-initial.xml) configuration file to PAN Web Management UI interface.
 
 > When you use this xml, password to login to PAN Web Management UI is "M@ft123M@ft123"
 
@@ -94,6 +94,8 @@ Import Configuration to PAN:
 - Go to Device -> Setup -> Operations
 
 - Click on Import Named configuration snapshot
+
+- Click on Load Named Configuration snapshot -> Select file which you just imported.
 
 - Click on Commit on right corner.
 
@@ -316,13 +318,21 @@ Goal of this lab series is drive all north-south and east-west traffic (on-prem 
 
 There are few approaches which can be done in PAN Firewall when peering CSR to BGP. These approaches doesn't fix forcing on-prem traffic via PAN but it will allow PAN to learn CSR routes.
 
-> Both of following changes to PAN are not available as import xml. Next lab will provide final xml which can imported to make end to end scenario.
+> Both of following changes to PAN are also available as an import vai xml. Follow steps above to import approach 1 or 2 to test out scenario
 
 ##### Approach 1 - PAN Does not advertise CSR routes to peers
 
 It is possible to use Export Policy on PAN BGP to not re-advertise routes learned from azure-csr and only advertise 0.0 route as following.
 
 Login to <https://public-ip-of-vm-series-fw> and login to PAN Web UI Management
+
+###### Import Option (approach 1)
+
+[Use this file - lab 4 approach 1](assets/running-config-Lab4-Approach1.xml) and import configuration following steps on top of the lab.
+
+###### UI Option (approach 1)
+
+Manual Steps:
 
 Navigate to Virtual Router -> Default -> BGP -> Export
 
@@ -339,6 +349,14 @@ Now only 0/0 route is advertised from PAN to peers (ARS and CSR)
 ##### Approach 2 - Update BGP Peering between PAN and CSR and configure ebgp -> import next hop from CSR
 
 Login to <https://public-ip-of-vm-series-fw> and login to PAN Web UI Management
+
+###### Import Option (approach 2)
+
+[Use this file - lab 4 approach 2](assets/running-config-Lab4-Approach2.xml) and import configuration following steps on top of the lab.
+
+###### UI Option (approach 2)
+
+Manual Steps
 
 Navigate to Virtual Router -> Default -> BGP -> Peer Group -> Click on azure-csr
 

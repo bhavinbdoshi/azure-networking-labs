@@ -20,6 +20,10 @@ This lab demonstrates Routing of traffic in Hub and Spoke architecture with Azur
 
 ![lab architecture diagram](assets/azure-hybrid-routing-lab.png)
 
+### Lab Traffic Flow
+
+![lab architecture traffic flow](assets/azure-hybrid-routing-lab-traffic-flow.png)
+
 ### Lab Series
 
 This lab is divided into series and each lab builds on previous lab.
@@ -49,8 +53,9 @@ This lab is divided into series and each lab builds on previous lab.
   - BGP Peer PAN to CSR so PaloAlto Virtual Router can learn BGP routes from CSR in Hub
   - Configure PAN BGP peer
   - Potential approach to fix broken routing due to peering of PAN and CSR
-- Lab 5
+- [Lab 5](lab5/README.md)
   - Deploy Route Server in Transit VNET to propagate routes to Spoke VNETs
+  - Configure PAN to advertise routes to routeserver in transit vnet with PAN as next hop
   - Spoke VNETs to use ARS in Transit instead of Hub
   - Test Connectivity between Spoke VM and On-prem VM
   - Validate internet and on-prem traffic inspected via PAN Firewall

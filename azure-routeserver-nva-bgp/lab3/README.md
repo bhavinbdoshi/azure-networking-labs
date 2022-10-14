@@ -190,7 +190,7 @@ az vm create --resource-group $rgazure \
 
 #### Configure VM Series PaloAlto Firewall
 
-For this lab you can import [this config file](assets/running-config-Lab3.xml) configuration file to PAN Web Management UI interface.
+For this lab you can import [this config file - lab 3](assets/running-config-Lab3-Final.xml) configuration file to PAN Web Management UI interface.
 
 > When you use this xml, password to login to PAN Web Management UI is "M@ft123M@ft123"
 
@@ -212,6 +212,8 @@ Import Configuration to PAN:
 - Go to Device -> Setup -> Operations
 
 - Click on Import Named configuration snapshot
+
+- Click on Load Named Configuration snapshot -> Select file which you just imported.
 
 - Click on Commit on right corner.
 
