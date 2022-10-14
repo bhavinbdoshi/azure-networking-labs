@@ -63,4 +63,13 @@ This lab is divided into series and each lab builds on previous lab.
   - Spoke to Spoke traffic via PAN Firewall
   - Spoke to Internet traffic via PAN Firewall
 
-#### References (coming soon)
+#### References
+
+This lab was inspired by many of great references below.
+
+- [Default route injection in spoke VNets](https://learn.microsoft.com/en-us/azure/route-server/route-injection-in-spokes)
+- [Azure Route Server: to encap or not to encap, that is the question](https://blog.cloudtrooper.net/2022/02/06/azure-route-server-to-encap-or-not-to-encap-that-is-the-question/)
+- [Azure Networking Lab- IPSEC VPN (IKEv2) between Cisco CSRs with BGP](https://github.com/jwrightazure/lab/tree/master/csr-vpn-to-csr-ikev2-bgp)
+- [Azure Networking Lab- Palo Alto Firewall Internet Egress with BGP](https://github.com/jwrightazure/lab/tree/master/PAN-BGP-ARS)
+- [Single Hub using BGP](https://github.com/bcosden/patterns/tree/master/1-hub-bgp)
+- [Azure Route Server with Cisco CSR1000v NVA](https://github.com/mddazure/azure-route-server-lab)
