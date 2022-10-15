@@ -174,7 +174,7 @@ az network routeserver peering create --name transit-ars-to-pan --peer-ip 10.0.4
 
 #### Configure PaltoAlto (PAN) in Hub and BGP Peer with routeserver in transit
 
-For this lab you can import [this config file](assets/running-config-Lab5.xml) configuration file to PAN Web Management UI interface.
+For this lab you can import [this config file](assets/running-config-Lab5-final.xml) configuration file to PAN Web Management UI interface.
 
 > When you use this xml, password to login to PAN Web Management UI is "M@ft123M@ft123"
 
