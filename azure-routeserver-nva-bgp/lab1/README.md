@@ -376,7 +376,6 @@ exit
 
 !route for test subnet
 ip route 10.100.10.0 255.255.255.0 10.100.1.1
-exit
 
 crypto ikev2 proposal to-azure-csr-proposal
   encryption aes-cbc-256
