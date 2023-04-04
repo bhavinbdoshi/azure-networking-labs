@@ -197,6 +197,25 @@ After BGP Peering with ARS, serial console will show neighbor up messages
 
 ```
 
+Save configuration to startup in case CSR restarts
+
+```bash
+
+azure-csr# copy running-config startup-config
+
+```
+
+Output when you run copy running-config startup-config
+
+```
+azure-csr#copy running-config startup-config
+Destination filename [startup-config]? startup-config
+Building configuration...
+[OK]
+
+```
+
+
 #### Validate BGP Learned routes
 
 ##### Validate azure-csr learned routes
