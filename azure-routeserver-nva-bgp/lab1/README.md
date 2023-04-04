@@ -602,7 +602,7 @@ On On-prem side for test vm create route table to simulate.
 #Add route table to onprem-test-vm 
 az network route-table create --name onprem-vm-rt --resource-group $rgonprem -o none
 
-az network route-table route create --name vm-rt --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 10.0.0.0/16 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
+az network route-table route create --name vm-rt --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 10.0.0.0/8 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
 az network route-table route create --name csr1-loopback --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 1.1.1.1/32 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
 az network route-table route create --name csr1-vti --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 192.168.1.1/32 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
 az network route-table route create --name csr3-loopback --resource-group $rgonprem --route-table-name onprem-vm-rt --address-prefix 3.3.3.3/32 --next-hop-type VirtualAppliance --next-hop-ip-address 10.100.1.4 -o none
