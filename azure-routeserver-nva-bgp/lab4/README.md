@@ -134,6 +134,24 @@ After peering with PAN, you would see this neighbor message up in Serial Console
 
 ```
 
+Save configuration to startup in case CSR restarts
+
+```bash
+
+azure-csr# copy running-config startup-config
+
+```
+
+Output when you run copy running-config startup-config
+
+```
+azure-csr#copy running-config startup-config
+Destination filename [startup-config]? startup-config
+Building configuration...
+[OK]
+
+```
+
 Validate BGP Peering in azure-csr use `show ip bgp summary`
 
 ```bash
