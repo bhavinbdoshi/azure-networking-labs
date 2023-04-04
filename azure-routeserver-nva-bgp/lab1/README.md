@@ -350,6 +350,24 @@ exit
 
 ```
 
+Save configuration to startup in case CSR restarts
+
+```bash
+
+azure-csr# copy running-config startup-config
+
+```
+
+Output when you run copy running-config startup-config
+
+```
+azure-csr#copy running-config startup-config
+Destination filename [startup-config]? startup-config
+Building configuration...
+[OK]
+
+```
+
 You can validate that your changes have been applied by running following commands at 'en' mode `azure-csr#`
 
 ```bash
@@ -446,6 +464,23 @@ router bgp 65003
 ip route 192.168.1.1 255.255.255.255 Tunnel 11
 ip route 10.100.0.0 255.255.0.0 null0
 exit
+
+```
+Save configuration to startup in case CSR restarts. In the file name provide startup-config
+
+```bash
+
+onprem-csr-vm# copy running-config startup-config
+
+```
+
+Output when you run copy running-config startup-config
+
+```
+onprem-csr-vm#copy running-config startup-config
+Destination filename [startup-config]? startup-config
+Building configuration...
+[OK]
 
 ```
 
