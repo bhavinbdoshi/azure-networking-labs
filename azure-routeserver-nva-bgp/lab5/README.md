@@ -145,7 +145,7 @@ az network vnet peering update -g $rgazure -n spoke1TOhub --vnet-name spoke1Vnet
 # update spoke2 and hub vnet peering (disable remote gateways)
 
 az network vnet peering update -g $rgazure -n hubTOspoke2 --vnet-name hubvnet --set allowGatewayTransit=false -o none
-az network vnet peering update -g $rgazure -n spoke2TOhub --vnet-name spoke1Vnet --set useRemoteGateways=false -o none
+az network vnet peering update -g $rgazure -n spoke2TOhub --vnet-name spoke2Vnet --set useRemoteGateways=false -o none
 
 ```
 
