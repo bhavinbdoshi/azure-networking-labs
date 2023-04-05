@@ -182,9 +182,7 @@ az vm create --resource-group $rgazure \
  --nics pan-mgmt-nic  pan-trust-nic \
  --image paloaltonetworks:vmseries-flex:byol:latest \
  --admin-username azureuser \
- --admin-password "M@ft123M@ft123" \ 
- -o none \
- --only-show-errors
+ --admin-password "M@ft123M@ft123"
 
 ```
 
